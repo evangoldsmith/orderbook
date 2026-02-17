@@ -13,6 +13,11 @@ public:
     PriceLevel(double price);
 
     bool add(Order order);
+
+    const size_t getSize();
+    const uint32_t getQty();
+    const double getPrice();
+
     PriceLevel& operator=(const PriceLevel& other);
 
 private:

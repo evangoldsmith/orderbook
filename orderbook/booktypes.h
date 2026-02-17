@@ -26,7 +26,8 @@ struct Order {
     uint32_t qty;
     Timestamp time;
 
-    Order(Side s, uint32_t q, double p);
+    Order(Side s, uint32_t q, double p)
+        : id(0), side(s), price(p), qty(q), time(0) {}
 };
 
 } // namespace orderbook

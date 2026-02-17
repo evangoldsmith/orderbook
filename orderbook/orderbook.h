@@ -14,6 +14,9 @@ public:
 
     BookResponse insertOrder(Side side, uint32_t qty, double price);
 
+    const size_t getBidCount();
+    const size_t getAskCount();
+
 private:
     std::map<double, PriceLevel> d_bids;
     std::map<double, PriceLevel> d_asks;
