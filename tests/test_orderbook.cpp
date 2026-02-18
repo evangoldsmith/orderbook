@@ -3,7 +3,7 @@
 
 using namespace orderbook;
 
-TEST(OrderbookTest, Construction) {
+TEST(OrderbookTest, construction) {
     Orderbook ob;
     EXPECT_TRUE(true);
 }
@@ -11,7 +11,7 @@ TEST(OrderbookTest, Construction) {
 TEST(OrderbookTest, addBuyOrder) {
     Orderbook ob;
 
-    ob.insertOrder(Side::BUY, 3, 10.0);
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::BUY, 3, 10.0));
 
     EXPECT_EQ(ob.getBidCount(), 1);
     EXPECT_EQ(ob.getAskCount(), 0);
@@ -20,7 +20,7 @@ TEST(OrderbookTest, addBuyOrder) {
 TEST(OrderbookTest, addSellOrder) {
     Orderbook ob;
 
-    ob.insertOrder(Side::SELL, 3, 10.0);
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::SELL, 3, 10.0));
     
     EXPECT_EQ(ob.getAskCount(), 1);
     EXPECT_EQ(ob.getBidCount(), 0);
@@ -29,8 +29,8 @@ TEST(OrderbookTest, addSellOrder) {
 TEST(OrderbookTest, getHighestBid) {
     Orderbook ob;
 
-    ob.insertOrder(Side::BUY, 3, 10.0);
-    ob.insertOrder(Side::BUY, 5, 11.0);
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::BUY, 3, 10.0));
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::BUY, 5, 11.0));
     
     EXPECT_EQ(ob.getBidCount(), 2);
     EXPECT_EQ(ob.getHighestBid(), 11.0);
@@ -39,9 +39,33 @@ TEST(OrderbookTest, getHighestBid) {
 TEST(OrderbookTest, getLowestAsk) {
     Orderbook ob;
 
-    ob.insertOrder(Side::SELL, 3, 10.0);
-    ob.insertOrder(Side::SELL, 5, 11.0);
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::SELL, 3, 10.0));
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::SELL, 5, 11.0));
     
     EXPECT_EQ(ob.getAskCount(), 2);
     EXPECT_EQ(ob.getLowestAsk(), 10.0);
+}
+
+TEST(OrderbookTest, matchBuyerSeller) {
+    Orderbook ob;
+
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::SELL, 5, 10.0));
+    EXPECT_EQ(ob.getAskCount(), 1);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 1, 11.0));
+    EXPECT_EQ(ob.getAskCount(), 1);
+    EXPECT_EQ(ob.getBidCount(), 0);
+    EXPECT_EQ(ob.getAskPriceLevel(10.0).peek().qty, 4);
+}
+
+TEST(OrderbookTest, matchPartialFill) {
+    Orderbook ob;
+
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::SELL, 5, 10.0));
+    EXPECT_EQ(ob.getAskCount(), 1);
+
+    ASSERT_EQ(BookResponse::PARTIALLY_FULFILLED, ob.insertOrder(Side::BUY, 10, 11.0));
+    EXPECT_EQ(ob.getAskCount(), 0);
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getBidPriceLevel(11.0).peek().qty, 5);
 }

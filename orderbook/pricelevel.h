@@ -13,7 +13,8 @@ public:
     PriceLevel(double price);
 
     bool add(const Order& order);
-    const bool pop(Order& order);
+    const bool pop();
+    Order& peek();
 
     const size_t getSize();
     const uint32_t getQty();

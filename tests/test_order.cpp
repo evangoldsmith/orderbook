@@ -3,7 +3,7 @@
 
 using namespace orderbook;
 
-TEST(OrderTest, Construction) {
+TEST(OrderTest, construction) {
     Order b(BUY, 0, 0.0);
     Order s(SELL, 0, 0.0);
     EXPECT_TRUE(true);
@@ -19,7 +19,7 @@ TEST(OrderTest, uniqueIds) {
     EXPECT_EQ(o3.id, 2);
 }
 
-TEST(OrderTest, TimestampIsPopulated) {
+TEST(OrderTest, timestampIsPopulated) {
     Timestamp before = now();
     Order o(BUY, 10, 100.0);
     Timestamp after = now();

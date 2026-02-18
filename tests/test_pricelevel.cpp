@@ -3,21 +3,21 @@
 
 using namespace orderbook;
 
-TEST(PriceLevelTest, DefaultConstruction) {
+TEST(PriceLevelTest, defaultConstruction) {
     PriceLevel p;
     EXPECT_EQ(p.getPrice(), 0);
     EXPECT_EQ(p.getQty(), 0);
     EXPECT_EQ(p.getSize(), 0);
 }
 
-TEST(PriceLevelTest, ConstructionWithPrice) {
+TEST(PriceLevelTest, constructionWithPrice) {
     PriceLevel p(99.5);
     EXPECT_EQ(p.getPrice(), 99.5);
     EXPECT_EQ(p.getQty(), 0);
     EXPECT_EQ(p.getSize(), 0);
 }
 
-TEST(PriceLevelTest, AddSingleOrder) {
+TEST(PriceLevelTest, addSingleOrder) {
     PriceLevel p(100.0);
     Order o(BUY, 10, 100.0);
     EXPECT_TRUE(p.add(o));
@@ -25,7 +25,7 @@ TEST(PriceLevelTest, AddSingleOrder) {
     EXPECT_EQ(p.getQty(), 10);
 }
 
-TEST(PriceLevelTest, AddMultipleOrders) {
+TEST(PriceLevelTest, addMultipleOrders) {
     PriceLevel p(100.0);
     Order o1(BUY, 10, 100.0);
     Order o2(BUY, 20, 100.0);
@@ -39,13 +39,27 @@ TEST(PriceLevelTest, AddMultipleOrders) {
     EXPECT_EQ(p.getQty(), 60);
 }
 
-TEST(PriceLevelTest, PopFromEmpty) {
+TEST(PriceLevelTest, popFromEmpty) {
     PriceLevel p(100.0);
-    Order o;
-    EXPECT_FALSE(p.pop(o));
+    EXPECT_FALSE(p.pop());
 }
 
-TEST(PriceLevelTest, PopReturnsFIFOOrder) {
+TEST(PriceLevelTest, peekReturnsFrontOrder) {
+    PriceLevel p(100.0);
+    Order o1(BUY, 10, 100.0);
+    Order o2(BUY, 20, 100.0);
+
+    uint32_t firstId = o1.id;
+
+    p.add(o1);
+    p.add(o2);
+
+    const Order& front = p.peek();
+    EXPECT_EQ(front.id, firstId);
+    EXPECT_EQ(front.qty, 10);
+}
+
+TEST(PriceLevelTest, popReturnsFIFOOrder) {
     PriceLevel p(100.0);
     Order o1(BUY, 10, 100.0);
     Order o2(BUY, 20, 100.0);
@@ -56,17 +70,16 @@ TEST(PriceLevelTest, PopReturnsFIFOOrder) {
     p.add(o1);
     p.add(o2);
 
-    Order popped;
-    EXPECT_TRUE(p.pop(popped));
-    EXPECT_EQ(popped.id, firstId);
-    EXPECT_EQ(popped.qty, 10);
+    EXPECT_EQ(p.peek().id, firstId);
+    EXPECT_EQ(p.peek().qty, 10);
+    EXPECT_TRUE(p.pop());
 
-    EXPECT_TRUE(p.pop(popped));
-    EXPECT_EQ(popped.id, secondId);
-    EXPECT_EQ(popped.qty, 20);
+    EXPECT_EQ(p.peek().id, secondId);
+    EXPECT_EQ(p.peek().qty, 20);
+    EXPECT_TRUE(p.pop());
 }
 
-TEST(PriceLevelTest, PopUpdatesQtyAndSize) {
+TEST(PriceLevelTest, popUpdatesQtyAndSize) {
     PriceLevel p(100.0);
     Order o1(BUY, 10, 100.0);
     Order o2(BUY, 20, 100.0);
@@ -77,26 +90,24 @@ TEST(PriceLevelTest, PopUpdatesQtyAndSize) {
     EXPECT_EQ(p.getQty(), 30);
     EXPECT_EQ(p.getSize(), 2);
 
-    Order popped;
-    p.pop(popped);
+    p.pop();
 
     EXPECT_EQ(p.getQty(), 20);
     EXPECT_EQ(p.getSize(), 1);
 
-    p.pop(popped);
+    p.pop();
 
     EXPECT_EQ(p.getQty(), 0);
     EXPECT_EQ(p.getSize(), 0);
 }
 
-TEST(PriceLevelTest, PopAllThenPopReturnsfalse) {
+TEST(PriceLevelTest, popAllThenPopReturnsfalse) {
     PriceLevel p(100.0);
     Order o(BUY, 5, 100.0);
     p.add(o);
 
-    Order popped;
-    EXPECT_TRUE(p.pop(popped));
-    EXPECT_FALSE(p.pop(popped));
+    EXPECT_TRUE(p.pop());
+    EXPECT_FALSE(p.pop());
     EXPECT_EQ(p.getQty(), 0);
     EXPECT_EQ(p.getSize(), 0);
 }
