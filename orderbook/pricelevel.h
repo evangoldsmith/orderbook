@@ -12,7 +12,7 @@ public:
     PriceLevel();
     PriceLevel(double price);
 
-    bool add(Order order);
+    bool add(const Order& order);
 
     const size_t getSize();
     const uint32_t getQty();
@@ -21,7 +21,7 @@ public:
     PriceLevel& operator=(const PriceLevel& other);
 
 private:
-    const double d_price;
+    double d_price;
     uint32_t d_qty;
     std::queue<Order> q;
 };

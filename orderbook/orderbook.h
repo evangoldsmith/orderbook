@@ -14,6 +14,8 @@ public:
 
     BookResponse insertOrder(Side side, uint32_t qty, double price);
 
+    const double getHighestBid();
+    const double getLowestAsk();
     const size_t getBidCount();
     const size_t getAskCount();
 

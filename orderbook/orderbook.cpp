@@ -33,4 +33,18 @@ const size_t Orderbook::getBidCount() {
     return count;
 }
 
+const double Orderbook::getHighestBid() {
+    if (!d_bids.empty()) {
+        return d_bids.rbegin()->first;
+    }
+    return 0.0;
+}
+
+const double Orderbook::getLowestAsk() {
+    if (!d_asks.empty()) {
+        return d_asks.begin()->first;
+    }
+    return 0.0;
+}
+
 } // namespace orderbook

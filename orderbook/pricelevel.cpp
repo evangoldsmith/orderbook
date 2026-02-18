@@ -6,7 +6,7 @@ PriceLevel::PriceLevel() : d_price(0), d_qty(0) {}
 
 PriceLevel::PriceLevel(double price) : d_price(price), d_qty(0) {}
 
-bool PriceLevel::add(Order order) {
+bool PriceLevel::add(const Order& order) {
     q.push(order);
     d_qty += order.qty;
     return true;
@@ -20,6 +20,7 @@ const double PriceLevel::getPrice() { return d_price; }
 
 PriceLevel& PriceLevel::operator=(const PriceLevel& other) {
     if (this != &other) {
+        d_price = other.d_price;
         d_qty = other.d_qty;
         q = other.q;
     }

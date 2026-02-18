@@ -2,10 +2,22 @@
 #define BOOKTYPES_H
 
 #include <cstdint>
+#include <chrono>
+#include <ostream>
 
 namespace orderbook {
 
 using Timestamp = uint64_t;
+static uint32_t orderId = 0;
+
+inline Timestamp now() {
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+inline uint32_t nextOrderId() {
+    return orderId++;
+}
 
 enum Side {
     BUY,
@@ -27,7 +39,16 @@ struct Order {
     Timestamp time;
 
     Order(Side s, uint32_t q, double p)
-        : id(0), side(s), price(p), qty(q), time(0) {}
+        : id(nextOrderId()), side(s), price(p), qty(q), time(now()) {}
+
+    friend std::ostream& operator<<(std::ostream& os, const Order& o) {
+        os << "Order{id=" << o.id
+           << ", side=" << (o.side == BUY ? "BUY" : "SELL")
+           << ", price=" << o.price
+           << ", qty=" << o.qty
+           << ", time=" << o.time << "}";
+        return os;
+    }
 };
 
 } // namespace orderbook
