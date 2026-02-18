@@ -13,6 +13,7 @@ public:
     PriceLevel(double price);
 
     bool add(const Order& order);
+    const bool pop(Order& order);
 
     const size_t getSize();
     const uint32_t getQty();
@@ -23,7 +24,7 @@ public:
 private:
     double d_price;
     uint32_t d_qty;
-    std::queue<Order> q;
+    std::queue<Order> d_q;
 };
 
 } // namespace orderbook

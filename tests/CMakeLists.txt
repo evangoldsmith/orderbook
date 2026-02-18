@@ -10,6 +10,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(orderbook_tests
     test_orderbook.cpp
     test_order.cpp
+    test_pricelevel.cpp
 )
 
 target_link_libraries(orderbook_tests

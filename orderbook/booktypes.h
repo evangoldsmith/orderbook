@@ -38,6 +38,7 @@ struct Order {
     uint32_t qty;
     Timestamp time;
 
+    Order() = default;
     Order(Side s, uint32_t q, double p)
         : id(nextOrderId()), side(s), price(p), qty(q), time(now()) {}
 
