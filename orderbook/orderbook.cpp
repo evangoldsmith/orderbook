@@ -9,11 +9,11 @@ namespace orderbook {
 BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price) {
     Order newOrder(side, qty, price);
 
-    if (side == BUY && !d_asks.empty()) {
+    if (side == Side::BUY && !d_asks.empty()) {
         if (processBidMatch(newOrder)) {
             return BookResponse::FULFILLED;
         }
-    } else if (side == SELL && !d_bids.empty()) {
+    } else if (side == Side::SELL && !d_bids.empty()) {
         if (processAskMatch(newOrder)) {
             return BookResponse::FULFILLED;
         }

@@ -19,7 +19,7 @@ TEST(PriceLevelTest, constructionWithPrice) {
 
 TEST(PriceLevelTest, addSingleOrder) {
     PriceLevel p(100.0);
-    Order o(BUY, 10, 100.0);
+    Order o(Side::BUY, 10, 100.0);
     EXPECT_TRUE(p.add(o));
     EXPECT_EQ(p.getSize(), 1);
     EXPECT_EQ(p.getQty(), 10);
@@ -27,9 +27,9 @@ TEST(PriceLevelTest, addSingleOrder) {
 
 TEST(PriceLevelTest, addMultipleOrders) {
     PriceLevel p(100.0);
-    Order o1(BUY, 10, 100.0);
-    Order o2(BUY, 20, 100.0);
-    Order o3(BUY, 30, 100.0);
+    Order o1(Side::BUY, 10, 100.0);
+    Order o2(Side::BUY, 20, 100.0);
+    Order o3(Side::BUY, 30, 100.0);
 
     p.add(o1);
     p.add(o2);
@@ -46,8 +46,8 @@ TEST(PriceLevelTest, popFromEmpty) {
 
 TEST(PriceLevelTest, peekReturnsFrontOrder) {
     PriceLevel p(100.0);
-    Order o1(BUY, 10, 100.0);
-    Order o2(BUY, 20, 100.0);
+    Order o1(Side::BUY, 10, 100.0);
+    Order o2(Side::BUY, 20, 100.0);
 
     uint32_t firstId = o1.id;
 
@@ -61,8 +61,8 @@ TEST(PriceLevelTest, peekReturnsFrontOrder) {
 
 TEST(PriceLevelTest, popReturnsFIFOOrder) {
     PriceLevel p(100.0);
-    Order o1(BUY, 10, 100.0);
-    Order o2(BUY, 20, 100.0);
+    Order o1(Side::BUY, 10, 100.0);
+    Order o2(Side::BUY, 20, 100.0);
 
     uint32_t firstId = o1.id;
     uint32_t secondId = o2.id;
@@ -81,8 +81,8 @@ TEST(PriceLevelTest, popReturnsFIFOOrder) {
 
 TEST(PriceLevelTest, popUpdatesQtyAndSize) {
     PriceLevel p(100.0);
-    Order o1(BUY, 10, 100.0);
-    Order o2(BUY, 20, 100.0);
+    Order o1(Side::BUY, 10, 100.0);
+    Order o2(Side::BUY, 20, 100.0);
 
     p.add(o1);
     p.add(o2);
@@ -103,7 +103,7 @@ TEST(PriceLevelTest, popUpdatesQtyAndSize) {
 
 TEST(PriceLevelTest, popAllThenPopReturnsfalse) {
     PriceLevel p(100.0);
-    Order o(BUY, 5, 100.0);
+    Order o(Side::BUY, 5, 100.0);
     p.add(o);
 
     EXPECT_TRUE(p.pop());

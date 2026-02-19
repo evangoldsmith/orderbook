@@ -19,7 +19,7 @@ inline uint32_t nextOrderId() {
     return ++id;
 }
 
-enum Side {
+enum class Side {
     BUY,
     SELL
 };
@@ -38,13 +38,13 @@ struct Order {
     uint32_t qty;
     Timestamp time;
 
-    Order() : id(0), side(BUY), price(0), qty(0), time(0) {}
+    Order() : id(0), side(Side::BUY), price(0), qty(0), time(0) {}
     Order(Side s, uint32_t q, double p)
         : id(nextOrderId()), side(s), price(p), qty(q), time(now()) {}
 
     friend std::ostream& operator<<(std::ostream& os, const Order& o) {
         os << "Order{id=" << o.id
-           << ", side=" << (o.side == BUY ? "BUY" : "SELL")
+           << ", side=" << (o.side == Side::BUY ? "BUY" : "SELL")
            << ", price=" << o.price
            << ", qty=" << o.qty
            << ", time=" << o.time << "}";

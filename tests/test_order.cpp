@@ -4,15 +4,15 @@
 using namespace orderbook;
 
 TEST(OrderTest, construction) {
-    Order b(BUY, 0, 0.0);
-    Order s(SELL, 0, 0.0);
+    Order b(Side::BUY, 0, 0.0);
+    Order s(Side::SELL, 0, 0.0);
     EXPECT_TRUE(true);
 }
 
 TEST(OrderTest, uniqueIds) {
-    Order o1(BUY, 0, 0.0);
-    Order o2(SELL, 0, 0.0);
-    Order o3(BUY, 0, 0.0);
+    Order o1(Side::BUY, 0, 0.0);
+    Order o2(Side::SELL, 0, 0.0);
+    Order o3(Side::BUY, 0, 0.0);
 
     EXPECT_EQ(o1.id, 1);
     EXPECT_EQ(o2.id, 2);
@@ -21,7 +21,7 @@ TEST(OrderTest, uniqueIds) {
 
 TEST(OrderTest, timestampIsPopulated) {
     Timestamp before = now();
-    Order o(BUY, 10, 100.0);
+    Order o(Side::BUY, 10, 100.0);
     Timestamp after = now();
 
     EXPECT_GT(o.time, 0);
