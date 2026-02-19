@@ -13,14 +13,13 @@ public:
     PriceLevel(double price);
 
     bool add(const Order& order);
-    const bool pop();
+    bool pop();
     Order& peek();
+    void subtractQty(const uint32_t qty);
 
-    const size_t getSize();
-    const uint32_t getQty();
-    const double getPrice();
-
-    PriceLevel& operator=(const PriceLevel& other);
+    size_t getSize() const;
+    uint32_t getQty() const;
+    double getPrice() const;
 
 private:
     double d_price;

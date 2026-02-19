@@ -14,9 +14,9 @@ TEST(OrderTest, uniqueIds) {
     Order o2(SELL, 0, 0.0);
     Order o3(BUY, 0, 0.0);
 
-    EXPECT_EQ(o1.id, 0);
-    EXPECT_EQ(o2.id, 1);
-    EXPECT_EQ(o3.id, 2);
+    EXPECT_EQ(o1.id, 1);
+    EXPECT_EQ(o2.id, 2);
+    EXPECT_EQ(o3.id, 3);
 }
 
 TEST(OrderTest, timestampIsPopulated) {

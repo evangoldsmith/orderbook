@@ -6,9 +6,8 @@ namespace orderbook {
 
 // Process a new order, run matching, and add to book if necessary.
 // Returns BookResponse (ERROR, PENDING, PARTIALLY_FULFILLED, FULFILLED)
-const BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price) {
+BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price) {
     Order newOrder(side, qty, price);
-    BookResponse status = PARTIALLY_FULFILLED;
 
     if (side == BUY && !d_asks.empty()) {
         if (processBidMatch(newOrder)) {
@@ -18,17 +17,15 @@ const BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price)
         if (processAskMatch(newOrder)) {
             return BookResponse::FULFILLED;
         }
-    } else {
-        status = PENDING;
     }
 
     addToBooks(newOrder);
-    return status;
+    return (newOrder.qty == qty) ? BookResponse::PENDING : BookResponse::PARTIALLY_FULFILLED;
 }
 
 // Match an incoming buy order against resting sell orders.
 // Returns true if the order is fully filled.
-const bool Orderbook::processBidMatch(Order& order) {
+bool Orderbook::processBidMatch(Order& order) {
     while (order.qty > 0 && !d_asks.empty() && order.price >= getLowestAsk()) {
         double askPrice = getLowestAsk();
         PriceLevel& level = d_asks[askPrice];
@@ -36,6 +33,7 @@ const bool Orderbook::processBidMatch(Order& order) {
 
         uint32_t fillQty = std::min(order.qty, resting.qty);
         createTrade(order, resting, fillQty);
+        level.subtractQty(fillQty);
 
         if (resting.qty == 0) {
             level.pop();
@@ -49,7 +47,7 @@ const bool Orderbook::processBidMatch(Order& order) {
     return order.qty == 0;
 }
 
-const bool Orderbook::processAskMatch(Order& order) {
+bool Orderbook::processAskMatch(Order& order) {
     while (order.qty > 0 && !d_bids.empty() && order.price <= getHighestBid()) {
         double bidPrice = getHighestBid();
         PriceLevel& level = d_bids[bidPrice];
@@ -57,6 +55,7 @@ const bool Orderbook::processAskMatch(Order& order) {
 
         uint32_t fillQty = std::min(order.qty, resting.qty);
         createTrade(resting, order, fillQty);
+        level.subtractQty(fillQty);
 
         if (resting.qty == 0) {
             level.pop();
@@ -70,13 +69,13 @@ const bool Orderbook::processAskMatch(Order& order) {
     return order.qty == 0;
 }
 
-const void Orderbook::createTrade(Order& buyer, Order& seller, uint32_t qty) {
+void Orderbook::createTrade(Order& buyer, Order& seller, uint32_t qty) {
     buyer.qty -= qty;
     seller.qty -= qty;
 }
 
 // Add order to respective book (bids/asks) depending on buy/sell
-const void Orderbook::addToBooks(const Order& order) {
+void Orderbook::addToBooks(const Order& order) {
     std::map<double, PriceLevel>& book = (order.side == Side::BUY) ? d_bids : d_asks;
 
     if (!book.contains(order.price)) {
@@ -87,7 +86,7 @@ const void Orderbook::addToBooks(const Order& order) {
 }
 
 // Number of total sell orders in the book
-const size_t Orderbook::getAskCount() {
+size_t Orderbook::getAskCount() const {
     size_t count = 0;
     for (auto& [price, level] : d_asks) {
         count += level.getSize();
@@ -96,7 +95,7 @@ const size_t Orderbook::getAskCount() {
 }
 
 // Number of total buy orders in the book
-const size_t Orderbook::getBidCount() {
+size_t Orderbook::getBidCount() const {
     size_t count = 0;
     for (auto& [price, level] : d_bids) {
         count += level.getSize();
@@ -105,7 +104,7 @@ const size_t Orderbook::getBidCount() {
 }
 
 // Highest priced bid order in the book
-const double Orderbook::getHighestBid() {
+double Orderbook::getHighestBid() const {
     if (!d_bids.empty()) {
         return d_bids.rbegin()->first;
     }
@@ -113,18 +112,18 @@ const double Orderbook::getHighestBid() {
 }
 
 // Lowest priced sell offer in the book
-const double Orderbook::getLowestAsk() {
+double Orderbook::getLowestAsk() const {
     if (!d_asks.empty()) {
         return d_asks.begin()->first;
     }
     return 0.0;
 }
 
-PriceLevel& Orderbook::getAskPriceLevel(const double price) {
+PriceLevel& Orderbook::getAskPriceLevel(double price) {
     return d_asks[price];
 }
 
-PriceLevel& Orderbook::getBidPriceLevel(const double price) {
+PriceLevel& Orderbook::getBidPriceLevel(double price) {
     return d_bids[price];
 }
 

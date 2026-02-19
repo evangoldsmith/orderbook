@@ -12,20 +12,20 @@ class Orderbook {
 public:
     Orderbook() = default;
 
-    const BookResponse insertOrder(Side side, uint32_t qty, double price);
-    const bool processBidMatch(Order& order);
-    const bool processAskMatch(Order& order);
+    BookResponse insertOrder(Side side, uint32_t qty, double price);
 
-    const double getHighestBid();
-    const double getLowestAsk();
-    const size_t getBidCount();
-    const size_t getAskCount();
-    PriceLevel& getAskPriceLevel(const double price);
-    PriceLevel& getBidPriceLevel(const double price);
+    double getHighestBid() const;
+    double getLowestAsk() const;
+    size_t getBidCount() const;
+    size_t getAskCount() const;
+    PriceLevel& getAskPriceLevel(double price);
+    PriceLevel& getBidPriceLevel(double price);
 
 private:
-    const void addToBooks(const Order& order);
-    const void createTrade(Order& buyer, Order& seller, uint32_t qty);
+    void addToBooks(const Order& order);
+    void createTrade(Order& buyer, Order& seller, uint32_t qty);
+    bool processBidMatch(Order& order);
+    bool processAskMatch(Order& order);
 
     std::map<double, PriceLevel> d_bids;
     std::map<double, PriceLevel> d_asks;

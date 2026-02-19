@@ -8,7 +8,6 @@
 namespace orderbook {
 
 using Timestamp = uint64_t;
-static uint32_t orderId = 0;
 
 inline Timestamp now() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -16,7 +15,8 @@ inline Timestamp now() {
 }
 
 inline uint32_t nextOrderId() {
-    return orderId++;
+    static uint32_t id = 0;
+    return ++id;
 }
 
 enum Side {
@@ -24,7 +24,7 @@ enum Side {
     SELL
 };
 
-enum BookResponse {
+enum class BookResponse {
     ERROR, // Failed during processing
     PENDING, // Added to book, no orders FULFILLED
     PARTIALLY_FULFILLED, // Some order qty FULFILLED, rest is added to book
@@ -38,7 +38,7 @@ struct Order {
     uint32_t qty;
     Timestamp time;
 
-    Order() = default;
+    Order() : id(0), side(BUY), price(0), qty(0), time(0) {}
     Order(Side s, uint32_t q, double p)
         : id(nextOrderId()), side(s), price(p), qty(q), time(now()) {}
 
