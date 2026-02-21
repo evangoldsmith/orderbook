@@ -31,6 +31,11 @@ enum class BookResponse {
     FULFILLED // Full order was FULFILLED
 };
 
+enum class MatchingMode {
+    PRICE_TIME,
+    PRO_RATA
+};
+
 struct Order {
     uint32_t id;
     Side side;

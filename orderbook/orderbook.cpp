@@ -9,23 +9,36 @@ namespace orderbook {
 BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price) {
     Order newOrder(side, qty, price);
 
-    if (side == Side::BUY && !d_asks.empty()) {
-        if (processBidMatch(newOrder)) {
-            return BookResponse::FULFILLED;
-        }
-    } else if (side == Side::SELL && !d_bids.empty()) {
-        if (processAskMatch(newOrder)) {
-            return BookResponse::FULFILLED;
-        }
+    // Attempt to match order against book
+    if (tryMatch(newOrder)) {
+        return BookResponse::FULFILLED;
     }
 
+    // Add full or remaining order to book
     addToBooks(newOrder);
     return (newOrder.qty == qty) ? BookResponse::PENDING : BookResponse::PARTIALLY_FULFILLED;
 }
 
+bool Orderbook::tryMatch(Order& order) {
+    if (order.side == Side::BUY && !d_asks.empty()) {
+        if (d_matchingMode == MatchingMode::PRO_RATA) {
+            return false; // TODO: Implement ProRata
+        }
+        return processPriceTimeBidMatch(order);
+    }
+    if (order.side == Side::SELL && !d_bids.empty()) {
+        if (d_matchingMode == MatchingMode::PRO_RATA) {
+            return false; // TODO: Implement ProRata
+        }
+        return processPriceTimeAskMatch(order);
+    }
+
+    return false;
+}
+
 // Match an incoming buy order against resting sell orders.
 // Returns true if the order is fully filled.
-bool Orderbook::processBidMatch(Order& order) {
+bool Orderbook::processPriceTimeBidMatch(Order& order) {
     while (order.qty > 0 && !d_asks.empty() && order.price >= getLowestAsk()) {
         double askPrice = getLowestAsk();
         PriceLevel& level = d_asks[askPrice];
@@ -47,7 +60,7 @@ bool Orderbook::processBidMatch(Order& order) {
     return order.qty == 0;
 }
 
-bool Orderbook::processAskMatch(Order& order) {
+bool Orderbook::processPriceTimeAskMatch(Order& order) {
     while (order.qty > 0 && !d_bids.empty() && order.price <= getHighestBid()) {
         double bidPrice = getHighestBid();
         PriceLevel& level = d_bids[bidPrice];
