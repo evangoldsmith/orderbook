@@ -23,16 +23,32 @@ enum class Side {
     SELL
 };
 
-enum class BookResponse {
+enum class Status {
     ERROR, // Failed during processing
     PENDING, // Added to book, no orders FULFILLED
     PARTIALLY_FULFILLED, // Some order qty FULFILLED, rest is added to book
     FULFILLED // Full order was FULFILLED
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Status& s) {
+    switch (s) {
+        case Status::ERROR:               return os << "ERROR";
+        case Status::PENDING:             return os << "PENDING";
+        case Status::PARTIALLY_FULFILLED: return os << "PARTIALLY_FULFILLED";
+        case Status::FULFILLED:           return os << "FULFILLED";
+    }
+    return os;
+}
+
 enum class MatchingMode {
-    PRICE_TIME,
-    PRO_RATA
+    PRICE_TIME, // FIFO matching
+    PRO_RATA // Matching proportional to order volume
+};
+
+enum class LogLevel {
+    OFF, // No logging
+    FULL, // Default order and trade logs
+    DEBUG // Order, trade, and system performance logs
 };
 
 struct Order {
@@ -41,8 +57,9 @@ struct Order {
     double price;
     uint32_t qty;
     Timestamp time;
+    Status status;
 
-    Order() : id(0), side(Side::BUY), price(0), qty(0), time(0) {}
+    Order() : id(0), side(Side::BUY), price(0), qty(0), time(0), status(Status::PENDING) {}
     Order(Side s, uint32_t q, double p)
         : id(nextOrderId()), side(s), price(p), qty(q), time(now()) {}
 

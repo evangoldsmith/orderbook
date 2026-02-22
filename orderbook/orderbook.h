@@ -5,14 +5,16 @@
 #include <map>
 #include "booktypes.h"
 #include "pricelevel.h"
+#include "logger.h"
 
 namespace orderbook {
 
 class Orderbook {
 public:
     Orderbook(const MatchingMode mode = MatchingMode::PRICE_TIME) : d_matchingMode(mode) {}
+    Orderbook(const LogLevel logLevel, const MatchingMode mode = MatchingMode::PRICE_TIME) : d_matchingMode(mode), d_logger(Logger(logLevel)) {}
 
-    BookResponse insertOrder(Side side, uint32_t qty, double price);
+    Status insertOrder(Side side, uint32_t qty, double price);
 
     double getHighestBid() const;
     double getLowestAsk() const;
@@ -24,7 +26,7 @@ public:
 private:
     bool tryMatch(Order& order);
     void addToBooks(const Order& order);
-    void createTrade(Order& buyer, Order& seller, uint32_t qty);
+    void createTrade(Order& aggressor, Order& resting, uint32_t qty);
     bool processPriceTimeBidMatch(Order& order);
     bool processPriceTimeAskMatch(Order& order);
     bool processProRataBidMatch(Order& order);
@@ -33,6 +35,7 @@ private:
     std::map<double, PriceLevel> d_bids;
     std::map<double, PriceLevel> d_asks;
     const MatchingMode d_matchingMode;
+    Logger d_logger;
 };
 
 } // namespace orderbook

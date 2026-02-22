@@ -11,12 +11,21 @@ add_executable(orderbook_tests
     test_orderbook.cpp
     test_order.cpp
     test_pricelevel.cpp
+    test_logger.cpp
 )
 
 target_link_libraries(orderbook_tests
     PRIVATE
         orderbook
         GTest::gtest_main
+)
+
+add_executable(demo 
+    demo.cpp
+)
+target_link_libraries(demo 
+    PRIVATE 
+        orderbook
 )
 
 include(GoogleTest)

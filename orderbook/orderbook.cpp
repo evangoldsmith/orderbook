@@ -6,18 +6,26 @@
 namespace orderbook {
 
 // Process a new order, run matching, and add to book if necessary.
-// Returns BookResponse (ERROR, PENDING, PARTIALLY_FULFILLED, FULFILLED)
-BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price) {
-    Order newOrder(side, qty, price);
+// Returns Status (ERROR, PENDING, PARTIALLY_FULFILLED, FULFILLED)
+Status Orderbook::insertOrder(Side side, uint32_t qty, double price) {
+    if (qty <= 0 || price <= 0) {
+        return Status::ERROR;
+    }
 
     // Attempt to match order against book
+    Order newOrder(side, qty, price);
+    d_logger.printEvent(newOrder);
+    Status res = Status::PENDING;
     if (tryMatch(newOrder)) {
-        return BookResponse::FULFILLED;
+        res = Status::FULFILLED;
+    } else if (newOrder.qty != qty) {
+        res = Status::PARTIALLY_FULFILLED;
     }
 
     // Add full or remaining order to book
-    addToBooks(newOrder);
-    return (newOrder.qty == qty) ? BookResponse::PENDING : BookResponse::PARTIALLY_FULFILLED;
+    newOrder.status = res;
+    if (res != Status::FULFILLED) { addToBooks(newOrder); }
+    return res;
 }
 
 bool Orderbook::tryMatch(Order& order) {
@@ -66,7 +74,7 @@ bool Orderbook::processPriceTimeAskMatch(Order& order) {
         Order& resting = level.peek();
 
         uint32_t fillQty = std::min(order.qty, resting.qty);
-        createTrade(resting, order, fillQty);
+        createTrade(order, resting, fillQty);
         level.subtractQty(fillQty);
 
         if (resting.qty == 0) {
@@ -157,9 +165,14 @@ bool Orderbook::processProRataAskMatch(Order& order) {
     return order.qty == 0;
 }
 
-void Orderbook::createTrade(Order& buyer, Order& seller, uint32_t qty) {
-    buyer.qty -= qty;
-    seller.qty -= qty;
+void Orderbook::createTrade(Order& aggressor, Order& resting, uint32_t qty) {
+    aggressor.qty -= qty;
+    resting.qty -= qty;
+    if (aggressor.side == Side::BUY) {
+        d_logger.printEvent(aggressor, resting, qty, aggressor.price);
+    } else {
+        d_logger.printEvent(resting, aggressor, qty, aggressor.price);
+    }
 }
 
 // Add order to respective book (bids/asks) depending on buy/sell
