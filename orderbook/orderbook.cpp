@@ -1,4 +1,5 @@
 #include <map>
+#include <cmath>
 #include "orderbook.h"
 #include "booktypes.h"
 
@@ -22,13 +23,13 @@ BookResponse Orderbook::insertOrder(Side side, uint32_t qty, double price) {
 bool Orderbook::tryMatch(Order& order) {
     if (order.side == Side::BUY && !d_asks.empty()) {
         if (d_matchingMode == MatchingMode::PRO_RATA) {
-            return false; // TODO: Implement ProRata
+            return processProRataBidMatch(order);
         }
         return processPriceTimeBidMatch(order);
     }
     if (order.side == Side::SELL && !d_bids.empty()) {
         if (d_matchingMode == MatchingMode::PRO_RATA) {
-            return false; // TODO: Implement ProRata
+            return processProRataAskMatch(order);
         }
         return processPriceTimeAskMatch(order);
     }
@@ -40,8 +41,7 @@ bool Orderbook::tryMatch(Order& order) {
 // Returns true if the order is fully filled.
 bool Orderbook::processPriceTimeBidMatch(Order& order) {
     while (order.qty > 0 && !d_asks.empty() && order.price >= getLowestAsk()) {
-        double askPrice = getLowestAsk();
-        PriceLevel& level = d_asks[askPrice];
+        PriceLevel& level = d_asks.begin()->second;
         Order& resting = level.peek();
 
         uint32_t fillQty = std::min(order.qty, resting.qty);
@@ -53,7 +53,7 @@ bool Orderbook::processPriceTimeBidMatch(Order& order) {
         }
 
         if (level.getSize() == 0) {
-            d_asks.erase(askPrice);
+            d_asks.erase(d_asks.begin());
         }
     }
 
@@ -62,8 +62,7 @@ bool Orderbook::processPriceTimeBidMatch(Order& order) {
 
 bool Orderbook::processPriceTimeAskMatch(Order& order) {
     while (order.qty > 0 && !d_bids.empty() && order.price <= getHighestBid()) {
-        double bidPrice = getHighestBid();
-        PriceLevel& level = d_bids[bidPrice];
+        PriceLevel& level = d_bids.rbegin()->second;
         Order& resting = level.peek();
 
         uint32_t fillQty = std::min(order.qty, resting.qty);
@@ -75,10 +74,86 @@ bool Orderbook::processPriceTimeAskMatch(Order& order) {
         }
 
         if (level.getSize() == 0) {
-            d_bids.erase(bidPrice);
+            // Amortized constant removal of last element in std::map
+            d_bids.erase(std::prev(d_bids.end()));
         }
     }
 
+    return order.qty == 0;
+}
+
+// Pro-Rata proportional matching algorithm
+bool Orderbook::processProRataBidMatch(Order& order) {
+    while (order.qty > 0 && !d_asks.empty() && order.price >= getLowestAsk()) {
+        PriceLevel& level = d_asks.begin()->second;
+        uint32_t totalQty = level.getQty();
+        uint32_t fillQty = std::min(order.qty, totalQty);
+
+        // Calculate proportional shares
+        size_t filled = 0;
+        for (size_t i = 0; i < level.getSize(); i++) {
+            Order& restingOrder = level.getQ()[i];
+            uint32_t share = static_cast<uint32_t>(
+                static_cast<double>(restingOrder.qty) / totalQty * fillQty
+            );
+
+            createTrade(order, restingOrder, share);
+            filled += share;
+        }
+
+        // Distribute reaminder by FIFO
+        uint32_t remainingQty = fillQty - filled;
+        for (size_t i = 0; i < level.getSize() && remainingQty != 0; i++) {
+            Order& restingOrder = level.getQ()[i];
+            uint32_t share = std::min(remainingQty, restingOrder.qty);
+
+            createTrade(order, restingOrder, share);
+            remainingQty -= share;
+        }
+
+        level.subtractQty(fillQty);
+        level.clearEmptyOrders();
+        if (level.getSize() == 0) {
+            d_asks.erase(d_asks.begin());
+        }
+    }
+    return order.qty == 0;
+}
+
+bool Orderbook::processProRataAskMatch(Order& order) {
+    while (order.qty > 0 && !d_bids.empty() && order.price <= getHighestBid()) {
+        PriceLevel& level = d_bids.rbegin()->second;
+        uint32_t totalQty = level.getQty();
+        uint32_t fillQty = std::min(order.qty, totalQty);
+
+        // Calculate proportional shares
+        size_t filled = 0;
+        for (size_t i = 0; i < level.getSize(); i++) {
+            Order& restingOrder = level.getQ()[i];
+            uint32_t share = static_cast<uint32_t>(
+                static_cast<double>(restingOrder.qty) / totalQty * fillQty
+            );
+
+            createTrade(order, restingOrder, share);
+            filled += share;
+        }
+
+        // Distribute reaminder by FIFO
+        uint32_t remainingQty = fillQty - filled;
+        for (size_t i = 0; i < level.getSize() && remainingQty != 0; i++) {
+            Order& restingOrder = level.getQ()[i];
+            uint32_t share = std::min(remainingQty, restingOrder.qty);
+
+            createTrade(order, restingOrder, share);
+            remainingQty -= share;
+        }
+
+        level.subtractQty(fillQty);
+        level.clearEmptyOrders();
+        if (level.getSize() == 0) {
+            d_bids.erase(std::prev(d_bids.end()));
+        }
+    }
     return order.qty == 0;
 }
 
@@ -132,6 +207,7 @@ double Orderbook::getLowestAsk() const {
     return 0.0;
 }
 
+// O(log(n)) accessors
 PriceLevel& Orderbook::getAskPriceLevel(double price) {
     return d_asks[price];
 }

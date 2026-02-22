@@ -8,7 +8,7 @@ PriceLevel::PriceLevel(double price) : d_price(price), d_qty(0) {}
 
 // Add new order to price level
 bool PriceLevel::add(const Order& order) {
-    d_q.push(order);
+    d_q.push_back(order);
     d_qty += order.qty;
     return true;
 }
@@ -17,11 +17,22 @@ bool PriceLevel::add(const Order& order) {
 bool PriceLevel::pop() {
     if (!d_q.empty()) {
         d_qty -= d_q.front().qty;
-        d_q.pop();
+        d_q.pop_front();
         return true;
     }
     return false;
 }
+
+void PriceLevel::clearEmptyOrders() {
+    d_q.erase(
+        std::remove_if(d_q.begin(), d_q.end(), [](const Order& o) 
+        { return o.qty == 0; }), d_q.end()
+    );
+}
+
+void PriceLevel::subtractQty(const uint32_t qty) { d_qty -= qty; }
+
+std::deque<Order>& PriceLevel::getQ() { return d_q; }
 
 Order& PriceLevel::peek() { return d_q.front(); }
 
@@ -30,7 +41,5 @@ size_t PriceLevel::getSize() const { return d_q.size(); }
 uint32_t PriceLevel::getQty() const { return d_qty; }
 
 double PriceLevel::getPrice() const { return d_price; }
-
-void PriceLevel::subtractQty(const uint32_t qty) { d_qty -= qty; }
 
 } // namespace orderbook

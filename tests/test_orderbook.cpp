@@ -216,3 +216,181 @@ TEST(OrderbookTest, multipleOrdersSamePriceLevel) {
     EXPECT_EQ(ob.getAskCount(), 1);
     EXPECT_EQ(ob.getAskPriceLevel(10.0).peek().qty, 2);
 }
+
+// ==================== Pro-Rata Matching Tests ====================
+
+// Basic proportional allocation: two asks of equal size should each lose
+// half their qty when a buy comes in for the total.
+TEST(ProRataTest, equalSizedOrdersSplitEvenly) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 10, 10.0);
+    ob.insertOrder(Side::SELL, 10, 10.0);
+    EXPECT_EQ(ob.getAskCount(), 2);
+
+    // Buy 10 at 10.0 — each order is 50% of the 20 total, gets 5 filled
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
+
+    EXPECT_EQ(ob.getBidCount(), 0);
+    EXPECT_EQ(ob.getAskCount(), 2);
+
+    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q[0].qty, 5);
+    EXPECT_EQ(q[1].qty, 5);
+}
+
+// Unequal orders: 40/60 split. Buy 10 from total of 100.
+// Order A (40): floor(10 * 40/100) = floor(4.0) = 4
+// Order B (60): floor(10 * 60/100) = floor(6.0) = 6
+TEST(ProRataTest, unequalOrdersProportionalAllocation) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 40, 10.0);
+    ob.insertOrder(Side::SELL, 60, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
+
+    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q[0].qty, 36);  // 40 - 4
+    EXPECT_EQ(q[1].qty, 54);  // 60 - 6
+}
+
+// Rounding: three orders of 10 each (total 30). Buy 10.
+// Each gets floor(10 * 10/30) = floor(3.33) = 3. That's 9 filled.
+// Remainder of 1 goes to the first order (FIFO).
+TEST(ProRataTest, remainderDistributedFIFO) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 10, 10.0);
+    ob.insertOrder(Side::SELL, 10, 10.0);
+    ob.insertOrder(Side::SELL, 10, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
+
+    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q[0].qty, 6);  // 10 - 3 proportional - 1 remainder
+    EXPECT_EQ(q[1].qty, 7);  // 10 - 3 proportional
+    EXPECT_EQ(q[2].qty, 7);  // 10 - 3 proportional
+}
+
+// Buy consumes entire price level — all orders fully filled and removed.
+TEST(ProRataTest, fullFillRemovesAllOrders) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 5, 10.0);
+    ob.insertOrder(Side::SELL, 5, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
+
+    EXPECT_EQ(ob.getAskCount(), 0);
+    EXPECT_EQ(ob.getBidCount(), 0);
+}
+
+// Buy is larger than entire level — partial fill, remainder added to book.
+TEST(ProRataTest, buyLargerThanLevel) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 3, 10.0);
+    ob.insertOrder(Side::SELL, 7, 10.0);
+
+    ASSERT_EQ(BookResponse::PARTIALLY_FULFILLED, ob.insertOrder(Side::BUY, 20, 10.0));
+
+    EXPECT_EQ(ob.getAskCount(), 0);
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getBidPriceLevel(10.0).peek().qty, 10);
+}
+
+// Sell-side pro-rata: incoming sell matched against resting bids.
+// Two bids of 20 each (total 40). Sell 10.
+// Each gets floor(10 * 20/40) = 5.
+TEST(ProRataTest, sellSideProportionalMatch) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::BUY, 20, 10.0);
+    ob.insertOrder(Side::BUY, 20, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::SELL, 10, 10.0));
+
+    EXPECT_EQ(ob.getAskCount(), 0);
+
+    std::deque<Order>& q = ob.getBidPriceLevel(10.0).getQ();
+    EXPECT_EQ(q[0].qty, 15);
+    EXPECT_EQ(q[1].qty, 15);
+}
+
+// Sell-side with remainder: three bids of 10 (total 30). Sell 7.
+// Each gets floor(7 * 10/30) = floor(2.33) = 2. That's 6 filled.
+// Remainder of 1 goes to first bid (FIFO).
+TEST(ProRataTest, sellSideRemainderFIFO) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::BUY, 10, 10.0);
+    ob.insertOrder(Side::BUY, 10, 10.0);
+    ob.insertOrder(Side::BUY, 10, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::SELL, 7, 10.0));
+
+    std::deque<Order>& q = ob.getBidPriceLevel(10.0).getQ();
+    EXPECT_EQ(q[0].qty, 7);  // 10 - 2 proportional - 1 remainder
+    EXPECT_EQ(q[1].qty, 8);  // 10 - 2
+    EXPECT_EQ(q[2].qty, 8);  // 10 - 2
+}
+
+// Small order gets 0 proportional share but still receives from remainder.
+// Orders: 1, 99 (total 100). Buy 5.
+// Order A (1):  floor(5 * 1/100) = 0
+// Order B (99): floor(5 * 99/100) = floor(4.95) = 4
+// Filled = 4, remainder = 1 → Order A gets 1 via FIFO.
+TEST(ProRataTest, smallOrderGetsRemainderOnly) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 1, 10.0);
+    ob.insertOrder(Side::SELL, 99, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 5, 10.0));
+
+    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q.size(), 1);
+    EXPECT_EQ(q[1].qty, 95);  // 99 - 4
+
+    // After next operation, the zeroed order should get cleaned up
+}
+
+// No match when prices don't cross — same as price-time.
+TEST(ProRataTest, noMatchWhenPricesDontCross) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 10, 10.0);
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::BUY, 10, 9.0));
+
+    EXPECT_EQ(ob.getAskCount(), 1);
+    EXPECT_EQ(ob.getBidCount(), 1);
+}
+
+// Single resting order behaves like price-time — gets the full fill.
+TEST(ProRataTest, singleOrderGetsFullFill) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 10, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 7, 10.0));
+
+    EXPECT_EQ(ob.getAskCount(), 1);
+    EXPECT_EQ(ob.getAskPriceLevel(10.0).peek().qty, 3);
+}
+
+// Book works correctly after pro-rata completely clears a level.
+TEST(ProRataTest, bookWorksAfterLevelCleared) {
+    Orderbook ob(MatchingMode::PRO_RATA);
+
+    ob.insertOrder(Side::SELL, 5, 10.0);
+    ob.insertOrder(Side::SELL, 5, 10.0);
+
+    ASSERT_EQ(BookResponse::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
+    EXPECT_EQ(ob.getAskCount(), 0);
+
+    // Insert new orders — book should still function
+    ASSERT_EQ(BookResponse::PENDING, ob.insertOrder(Side::SELL, 3, 11.0));
+    EXPECT_EQ(ob.getAskCount(), 1);
+    EXPECT_EQ(ob.getLowestAsk(), 11.0);
+}

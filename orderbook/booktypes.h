@@ -8,7 +8,6 @@
 namespace orderbook {
 
 using Timestamp = uint64_t;
-
 inline Timestamp now() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();

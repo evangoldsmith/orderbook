@@ -2,7 +2,7 @@
 #define PRICELEVEL_H
 
 #include <cstdint>
-#include <queue>
+#include <deque>
 #include "booktypes.h"
 
 namespace orderbook {
@@ -16,15 +16,17 @@ public:
     bool pop();
     Order& peek();
     void subtractQty(const uint32_t qty);
+    void clearEmptyOrders();
 
     size_t getSize() const;
     uint32_t getQty() const;
     double getPrice() const;
+    std::deque<Order>& getQ();
 
 private:
     double d_price;
     uint32_t d_qty;
-    std::queue<Order> d_q;
+    std::deque<Order> d_q;
 };
 
 } // namespace orderbook
