@@ -1,4 +1,5 @@
 #include "pricelevel.h"
+#include <algorithm>
 
 namespace orderbook {
 
@@ -6,37 +7,34 @@ PriceLevel::PriceLevel() : d_price(0), d_qty(0) {}
 
 PriceLevel::PriceLevel(double price) : d_price(price), d_qty(0) {}
 
-// Add new order to price level
-bool PriceLevel::add(const Order& order) {
-    d_q.push_back(order);
-    d_qty += order.qty;
-    return true;
+void PriceLevel::add(uint32_t orderId, uint32_t qty) {
+    d_ids.push_back(orderId);
+    d_qty += qty;
 }
 
-// Remove the first order in the queue, return false on empty.
 bool PriceLevel::pop() {
-    if (!d_q.empty()) {
-        d_qty -= d_q.front().qty;
-        d_q.pop_front();
+    if (!d_ids.empty()) {
+        d_ids.pop_front();
         return true;
     }
     return false;
 }
 
-void PriceLevel::clearEmptyOrders() {
-    d_q.erase(
-        std::remove_if(d_q.begin(), d_q.end(), [](const Order& o) 
-        { return o.qty == 0; }), d_q.end()
+uint32_t PriceLevel::front() const { return d_ids.front(); }
+
+void PriceLevel::removeIds(const std::unordered_set<uint32_t>& toRemove) {
+    d_ids.erase(
+        std::remove_if(d_ids.begin(), d_ids.end(),
+            [&toRemove](uint32_t id) { return toRemove.count(id) > 0; }),
+        d_ids.end()
     );
 }
 
-void PriceLevel::subtractQty(const uint32_t qty) { d_qty -= qty; }
+void PriceLevel::subtractQty(uint32_t qty) { d_qty -= qty; }
 
-std::deque<Order>& PriceLevel::getQ() { return d_q; }
+std::deque<uint32_t>& PriceLevel::getIds() { return d_ids; }
 
-Order& PriceLevel::peek() { return d_q.front(); }
-
-size_t PriceLevel::getSize() const { return d_q.size(); }
+size_t PriceLevel::getSize() const { return d_ids.size(); }
 
 uint32_t PriceLevel::getQty() const { return d_qty; }
 

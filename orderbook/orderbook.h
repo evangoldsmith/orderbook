@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <map>
+#include <unordered_map>
 #include "booktypes.h"
 #include "pricelevel.h"
 #include "logger.h"
@@ -15,6 +16,7 @@ public:
     Orderbook(const LogLevel logLevel, const MatchingMode mode = MatchingMode::PRICE_TIME) : d_matchingMode(mode), d_logger(Logger(logLevel)) {}
 
     Status insertOrder(Side side, uint32_t qty, double price);
+    bool cancelOrder(uint32_t orderId);
 
     double getHighestBid() const;
     double getLowestAsk() const;
@@ -22,10 +24,11 @@ public:
     size_t getAskCount() const;
     PriceLevel& getAskPriceLevel(double price);
     PriceLevel& getBidPriceLevel(double price);
+    const Order& getOrder(uint32_t id) const;
 
 private:
     bool tryMatch(Order& order);
-    void addToBooks(const Order& order);
+    void addToBooks(uint32_t orderId, const Order& order);
     void createTrade(Order& aggressor, Order& resting, uint32_t qty);
     bool processPriceTimeBidMatch(Order& order);
     bool processPriceTimeAskMatch(Order& order);
@@ -34,6 +37,7 @@ private:
 
     std::map<double, PriceLevel> d_bids;
     std::map<double, PriceLevel> d_asks;
+    std::unordered_map<uint32_t, Order> d_orders;
     const MatchingMode d_matchingMode;
     Logger d_logger;
 };

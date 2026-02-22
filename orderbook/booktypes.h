@@ -61,7 +61,7 @@ struct Order {
 
     Order() : id(0), side(Side::BUY), price(0), qty(0), time(0), status(Status::PENDING) {}
     Order(Side s, uint32_t q, double p)
-        : id(nextOrderId()), side(s), price(p), qty(q), time(now()) {}
+        : id(nextOrderId()), side(s), price(p), qty(q), time(now()), status(Status::PENDING) {}
 
     friend std::ostream& operator<<(std::ostream& os, const Order& o) {
         os << "Order{id=" << o.id

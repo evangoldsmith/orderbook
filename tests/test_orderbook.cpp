@@ -21,7 +21,7 @@ TEST(OrderbookTest, addSellOrder) {
     Orderbook ob;
 
     ASSERT_EQ(Status::PENDING, ob.insertOrder(Side::SELL, 3, 10.0));
-    
+
     EXPECT_EQ(ob.getAskCount(), 1);
     EXPECT_EQ(ob.getBidCount(), 0);
 }
@@ -31,7 +31,7 @@ TEST(OrderbookTest, getHighestBid) {
 
     ASSERT_EQ(Status::PENDING, ob.insertOrder(Side::BUY, 3, 10.0));
     ASSERT_EQ(Status::PENDING, ob.insertOrder(Side::BUY, 5, 11.0));
-    
+
     EXPECT_EQ(ob.getBidCount(), 2);
     EXPECT_EQ(ob.getHighestBid(), 11.0);
 }
@@ -41,7 +41,7 @@ TEST(OrderbookTest, getLowestAsk) {
 
     ASSERT_EQ(Status::PENDING, ob.insertOrder(Side::SELL, 3, 10.0));
     ASSERT_EQ(Status::PENDING, ob.insertOrder(Side::SELL, 5, 11.0));
-    
+
     EXPECT_EQ(ob.getAskCount(), 2);
     EXPECT_EQ(ob.getLowestAsk(), 10.0);
 }
@@ -55,7 +55,9 @@ TEST(OrderbookTest, matchBuyerSeller) {
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 1, 11.0));
     EXPECT_EQ(ob.getAskCount(), 1);
     EXPECT_EQ(ob.getBidCount(), 0);
-    EXPECT_EQ(ob.getAskPriceLevel(10.0).peek().qty, 4);
+
+    uint32_t frontId = ob.getAskPriceLevel(10.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 4);
 }
 
 TEST(OrderbookTest, matchPartialFill) {
@@ -67,7 +69,9 @@ TEST(OrderbookTest, matchPartialFill) {
     ASSERT_EQ(Status::PARTIALLY_FULFILLED, ob.insertOrder(Side::BUY, 10, 11.0));
     EXPECT_EQ(ob.getAskCount(), 0);
     EXPECT_EQ(ob.getBidCount(), 1);
-    EXPECT_EQ(ob.getBidPriceLevel(11.0).peek().qty, 5);
+
+    uint32_t frontId = ob.getBidPriceLevel(11.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 5);
 }
 
 // Sell-side matching tests
@@ -81,7 +85,9 @@ TEST(OrderbookTest, matchSellerBuyer) {
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::SELL, 1, 9.0));
     EXPECT_EQ(ob.getBidCount(), 1);
     EXPECT_EQ(ob.getAskCount(), 0);
-    EXPECT_EQ(ob.getBidPriceLevel(10.0).peek().qty, 4);
+
+    uint32_t frontId = ob.getBidPriceLevel(10.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 4);
 }
 
 TEST(OrderbookTest, matchSellerFullFill) {
@@ -102,7 +108,9 @@ TEST(OrderbookTest, matchSellerPartialFill) {
 
     EXPECT_EQ(ob.getBidCount(), 0);
     EXPECT_EQ(ob.getAskCount(), 1);
-    EXPECT_EQ(ob.getAskPriceLevel(9.0).peek().qty, 4);
+
+    uint32_t frontId = ob.getAskPriceLevel(9.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 4);
 }
 
 // Exact price match
@@ -143,7 +151,9 @@ TEST(OrderbookTest, buySweepsMultipleAskLevels) {
     EXPECT_EQ(ob.getBidCount(), 0);
     EXPECT_EQ(ob.getAskCount(), 1);
     EXPECT_EQ(ob.getLowestAsk(), 12.0);
-    EXPECT_EQ(ob.getAskPriceLevel(12.0).peek().qty, 2);
+
+    uint32_t frontId = ob.getAskPriceLevel(12.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 2);
 }
 
 TEST(OrderbookTest, sellSweepsMultipleBidLevels) {
@@ -160,7 +170,9 @@ TEST(OrderbookTest, sellSweepsMultipleBidLevels) {
     EXPECT_EQ(ob.getAskCount(), 0);
     EXPECT_EQ(ob.getBidCount(), 1);
     EXPECT_EQ(ob.getHighestBid(), 10.0);
-    EXPECT_EQ(ob.getBidPriceLevel(10.0).peek().qty, 2);
+
+    uint32_t frontId = ob.getBidPriceLevel(10.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 2);
 }
 
 TEST(OrderbookTest, buySweepsAllLevelsAndHasRemainder) {
@@ -174,7 +186,9 @@ TEST(OrderbookTest, buySweepsAllLevelsAndHasRemainder) {
 
     EXPECT_EQ(ob.getAskCount(), 0);
     EXPECT_EQ(ob.getBidCount(), 1);
-    EXPECT_EQ(ob.getBidPriceLevel(11.0).peek().qty, 5);
+
+    uint32_t frontId = ob.getBidPriceLevel(11.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 5);
 }
 
 // Edge cases
@@ -214,7 +228,55 @@ TEST(OrderbookTest, multipleOrdersSamePriceLevel) {
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 5, 10.0));
 
     EXPECT_EQ(ob.getAskCount(), 1);
-    EXPECT_EQ(ob.getAskPriceLevel(10.0).peek().qty, 2);
+
+    uint32_t frontId = ob.getAskPriceLevel(10.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 2);
+}
+
+// ==================== Cancel Order Tests ====================
+
+TEST(OrderbookTest, cancelExistingOrder) {
+    Orderbook ob;
+
+    ob.insertOrder(Side::SELL, 5, 10.0);
+    uint32_t orderId = ob.getAskPriceLevel(10.0).front();
+
+    EXPECT_TRUE(ob.cancelOrder(orderId));
+    EXPECT_EQ(ob.getAskCount(), 0);
+}
+
+TEST(OrderbookTest, cancelNonExistentOrder) {
+    Orderbook ob;
+    EXPECT_FALSE(ob.cancelOrder(99999));
+}
+
+TEST(OrderbookTest, cancelOneLeavesOthers) {
+    Orderbook ob;
+
+    ob.insertOrder(Side::SELL, 5, 10.0);
+    ob.insertOrder(Side::SELL, 3, 10.0);
+
+    uint32_t firstId = ob.getAskPriceLevel(10.0).front();
+    EXPECT_TRUE(ob.cancelOrder(firstId));
+
+    // First order cancelled (lazy — ID may still be in deque but qty subtracted)
+    // The second order should still be accessible
+    EXPECT_EQ(ob.getAskPriceLevel(10.0).getQty(), 3);
+}
+
+TEST(OrderbookTest, cancelledOrderSkippedDuringMatch) {
+    Orderbook ob;
+
+    ob.insertOrder(Side::SELL, 5, 10.0);
+    ob.insertOrder(Side::SELL, 3, 10.0);
+
+    // Cancel the first order
+    uint32_t firstId = ob.getAskPriceLevel(10.0).front();
+    ob.cancelOrder(firstId);
+
+    // Buy should skip the cancelled order and match against the second
+    ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 3, 10.0));
+    EXPECT_EQ(ob.getAskCount(), 0);
 }
 
 // ==================== Pro-Rata Matching Tests ====================
@@ -234,9 +296,9 @@ TEST(ProRataTest, equalSizedOrdersSplitEvenly) {
     EXPECT_EQ(ob.getBidCount(), 0);
     EXPECT_EQ(ob.getAskCount(), 2);
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 5);
-    EXPECT_EQ(q[1].qty, 5);
+    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    EXPECT_EQ(ob.getOrder(ids[0]).qty, 5);
+    EXPECT_EQ(ob.getOrder(ids[1]).qty, 5);
 }
 
 // Unequal orders: 40/60 split. Buy 10 from total of 100.
@@ -250,9 +312,9 @@ TEST(ProRataTest, unequalOrdersProportionalAllocation) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 36);  // 40 - 4
-    EXPECT_EQ(q[1].qty, 54);  // 60 - 6
+    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    EXPECT_EQ(ob.getOrder(ids[0]).qty, 36);  // 40 - 4
+    EXPECT_EQ(ob.getOrder(ids[1]).qty, 54);  // 60 - 6
 }
 
 // Rounding: three orders of 10 each (total 30). Buy 10.
@@ -267,10 +329,10 @@ TEST(ProRataTest, remainderDistributedFIFO) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 6);  // 10 - 3 proportional - 1 remainder
-    EXPECT_EQ(q[1].qty, 7);  // 10 - 3 proportional
-    EXPECT_EQ(q[2].qty, 7);  // 10 - 3 proportional
+    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    EXPECT_EQ(ob.getOrder(ids[0]).qty, 6);  // 10 - 3 proportional - 1 remainder
+    EXPECT_EQ(ob.getOrder(ids[1]).qty, 7);  // 10 - 3 proportional
+    EXPECT_EQ(ob.getOrder(ids[2]).qty, 7);  // 10 - 3 proportional
 }
 
 // Buy consumes entire price level — all orders fully filled and removed.
@@ -297,7 +359,9 @@ TEST(ProRataTest, buyLargerThanLevel) {
 
     EXPECT_EQ(ob.getAskCount(), 0);
     EXPECT_EQ(ob.getBidCount(), 1);
-    EXPECT_EQ(ob.getBidPriceLevel(10.0).peek().qty, 10);
+
+    uint32_t frontId = ob.getBidPriceLevel(10.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 10);
 }
 
 // Sell-side pro-rata: incoming sell matched against resting bids.
@@ -313,9 +377,9 @@ TEST(ProRataTest, sellSideProportionalMatch) {
 
     EXPECT_EQ(ob.getAskCount(), 0);
 
-    std::deque<Order>& q = ob.getBidPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 15);
-    EXPECT_EQ(q[1].qty, 15);
+    std::deque<uint32_t>& ids = ob.getBidPriceLevel(10.0).getIds();
+    EXPECT_EQ(ob.getOrder(ids[0]).qty, 15);
+    EXPECT_EQ(ob.getOrder(ids[1]).qty, 15);
 }
 
 // Sell-side with remainder: three bids of 10 (total 30). Sell 7.
@@ -330,10 +394,10 @@ TEST(ProRataTest, sellSideRemainderFIFO) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::SELL, 7, 10.0));
 
-    std::deque<Order>& q = ob.getBidPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 7);  // 10 - 2 proportional - 1 remainder
-    EXPECT_EQ(q[1].qty, 8);  // 10 - 2
-    EXPECT_EQ(q[2].qty, 8);  // 10 - 2
+    std::deque<uint32_t>& ids = ob.getBidPriceLevel(10.0).getIds();
+    EXPECT_EQ(ob.getOrder(ids[0]).qty, 7);  // 10 - 2 proportional - 1 remainder
+    EXPECT_EQ(ob.getOrder(ids[1]).qty, 8);  // 10 - 2
+    EXPECT_EQ(ob.getOrder(ids[2]).qty, 8);  // 10 - 2
 }
 
 // Small order gets 0 proportional share but still receives from remainder.
@@ -349,11 +413,11 @@ TEST(ProRataTest, smallOrderGetsRemainderOnly) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 5, 10.0));
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q.size(), 1);
-    EXPECT_EQ(q[1].qty, 95);  // 99 - 4
-
-    // After next operation, the zeroed order should get cleaned up
+    // Order A (qty 1) gets 1 from remainder, fully filled and removed
+    // Order B (qty 99) gets 4 proportional, has 95 remaining
+    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    EXPECT_EQ(ids.size(), 1);
+    EXPECT_EQ(ob.getOrder(ids[0]).qty, 95);  // 99 - 4
 }
 
 // No match when prices don't cross — same as price-time.
@@ -376,7 +440,9 @@ TEST(ProRataTest, singleOrderGetsFullFill) {
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 7, 10.0));
 
     EXPECT_EQ(ob.getAskCount(), 1);
-    EXPECT_EQ(ob.getAskPriceLevel(10.0).peek().qty, 3);
+
+    uint32_t frontId = ob.getAskPriceLevel(10.0).front();
+    EXPECT_EQ(ob.getOrder(frontId).qty, 3);
 }
 
 // Book works correctly after pro-rata completely clears a level.

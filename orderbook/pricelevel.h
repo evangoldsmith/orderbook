@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <deque>
-#include "booktypes.h"
+#include <unordered_set>
 
 namespace orderbook {
 
@@ -12,21 +12,21 @@ public:
     PriceLevel();
     PriceLevel(double price);
 
-    bool add(const Order& order);
+    void add(uint32_t orderId, uint32_t qty);
     bool pop();
-    Order& peek();
-    void subtractQty(const uint32_t qty);
-    void clearEmptyOrders();
+    uint32_t front() const;
+    void subtractQty(uint32_t qty);
+    void removeIds(const std::unordered_set<uint32_t>& toRemove);
 
     size_t getSize() const;
     uint32_t getQty() const;
     double getPrice() const;
-    std::deque<Order>& getQ();
+    std::deque<uint32_t>& getIds();
 
 private:
     double d_price;
     uint32_t d_qty;
-    std::deque<Order> d_q;
+    std::deque<uint32_t> d_ids;
 };
 
 } // namespace orderbook
