@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <chrono>
+#include <list>
 #include <ostream>
 
 namespace orderbook {
@@ -58,6 +59,7 @@ struct Order {
     uint32_t qty;
     Timestamp time;
     Status status;
+    std::list<uint32_t>::iterator listIt;
 
     Order() : id(0), side(Side::BUY), price(0), qty(0), time(0), status(Status::PENDING) {}
     Order(Side s, uint32_t q, double p)

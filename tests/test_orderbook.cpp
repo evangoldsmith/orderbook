@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <list>
 #include "orderbook.h"
 
 using namespace orderbook;
@@ -259,9 +260,8 @@ TEST(OrderbookTest, cancelOneLeavesOthers) {
     uint32_t firstId = ob.getAskPriceLevel(10.0).front();
     EXPECT_TRUE(ob.cancelOrder(firstId));
 
-    // First order cancelled (lazy — ID may still be in deque but qty subtracted)
-    // The second order should still be accessible
     EXPECT_EQ(ob.getAskPriceLevel(10.0).getQty(), 3);
+    EXPECT_EQ(ob.getAskPriceLevel(10.0).getSize(), 1);
 }
 
 TEST(OrderbookTest, cancelledOrderSkippedDuringMatch) {
@@ -296,9 +296,10 @@ TEST(ProRataTest, equalSizedOrdersSplitEvenly) {
     EXPECT_EQ(ob.getBidCount(), 0);
     EXPECT_EQ(ob.getAskCount(), 2);
 
-    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
-    EXPECT_EQ(ob.getOrder(ids[0]).qty, 5);
-    EXPECT_EQ(ob.getOrder(ids[1]).qty, 5);
+    std::list<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    auto it = ids.begin();
+    EXPECT_EQ(ob.getOrder(*it).qty, 5);
+    EXPECT_EQ(ob.getOrder(*std::next(it)).qty, 5);
 }
 
 // Unequal orders: 40/60 split. Buy 10 from total of 100.
@@ -312,9 +313,10 @@ TEST(ProRataTest, unequalOrdersProportionalAllocation) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
 
-    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
-    EXPECT_EQ(ob.getOrder(ids[0]).qty, 36);  // 40 - 4
-    EXPECT_EQ(ob.getOrder(ids[1]).qty, 54);  // 60 - 6
+    std::list<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    auto it = ids.begin();
+    EXPECT_EQ(ob.getOrder(*it).qty, 36);  // 40 - 4
+    EXPECT_EQ(ob.getOrder(*std::next(it)).qty, 54);  // 60 - 6
 }
 
 // Rounding: three orders of 10 each (total 30). Buy 10.
@@ -329,10 +331,11 @@ TEST(ProRataTest, remainderDistributedFIFO) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
 
-    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
-    EXPECT_EQ(ob.getOrder(ids[0]).qty, 6);  // 10 - 3 proportional - 1 remainder
-    EXPECT_EQ(ob.getOrder(ids[1]).qty, 7);  // 10 - 3 proportional
-    EXPECT_EQ(ob.getOrder(ids[2]).qty, 7);  // 10 - 3 proportional
+    std::list<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    auto it = ids.begin();
+    EXPECT_EQ(ob.getOrder(*it).qty, 6);  // 10 - 3 proportional - 1 remainder
+    EXPECT_EQ(ob.getOrder(*std::next(it)).qty, 7);  // 10 - 3 proportional
+    EXPECT_EQ(ob.getOrder(*std::next(it, 2)).qty, 7);  // 10 - 3 proportional
 }
 
 // Buy consumes entire price level — all orders fully filled and removed.
@@ -377,9 +380,10 @@ TEST(ProRataTest, sellSideProportionalMatch) {
 
     EXPECT_EQ(ob.getAskCount(), 0);
 
-    std::deque<uint32_t>& ids = ob.getBidPriceLevel(10.0).getIds();
-    EXPECT_EQ(ob.getOrder(ids[0]).qty, 15);
-    EXPECT_EQ(ob.getOrder(ids[1]).qty, 15);
+    std::list<uint32_t>& ids = ob.getBidPriceLevel(10.0).getIds();
+    auto it = ids.begin();
+    EXPECT_EQ(ob.getOrder(*it).qty, 15);
+    EXPECT_EQ(ob.getOrder(*std::next(it)).qty, 15);
 }
 
 // Sell-side with remainder: three bids of 10 (total 30). Sell 7.
@@ -394,10 +398,11 @@ TEST(ProRataTest, sellSideRemainderFIFO) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::SELL, 7, 10.0));
 
-    std::deque<uint32_t>& ids = ob.getBidPriceLevel(10.0).getIds();
-    EXPECT_EQ(ob.getOrder(ids[0]).qty, 7);  // 10 - 2 proportional - 1 remainder
-    EXPECT_EQ(ob.getOrder(ids[1]).qty, 8);  // 10 - 2
-    EXPECT_EQ(ob.getOrder(ids[2]).qty, 8);  // 10 - 2
+    std::list<uint32_t>& ids = ob.getBidPriceLevel(10.0).getIds();
+    auto it = ids.begin();
+    EXPECT_EQ(ob.getOrder(*it).qty, 7);  // 10 - 2 proportional - 1 remainder
+    EXPECT_EQ(ob.getOrder(*std::next(it)).qty, 8);  // 10 - 2
+    EXPECT_EQ(ob.getOrder(*std::next(it, 2)).qty, 8);  // 10 - 2
 }
 
 // Small order gets 0 proportional share but still receives from remainder.
@@ -415,9 +420,9 @@ TEST(ProRataTest, smallOrderGetsRemainderOnly) {
 
     // Order A (qty 1) gets 1 from remainder, fully filled and removed
     // Order B (qty 99) gets 4 proportional, has 95 remaining
-    std::deque<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
+    std::list<uint32_t>& ids = ob.getAskPriceLevel(10.0).getIds();
     EXPECT_EQ(ids.size(), 1);
-    EXPECT_EQ(ob.getOrder(ids[0]).qty, 95);  // 99 - 4
+    EXPECT_EQ(ob.getOrder(ids.front()).qty, 95);  // 99 - 4
 }
 
 // No match when prices don't cross — same as price-time.

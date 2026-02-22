@@ -82,15 +82,17 @@ TEST(PriceLevelTest, popAllThenPopReturnsFalse) {
     EXPECT_EQ(p.getSize(), 0);
 }
 
-TEST(PriceLevelTest, removeIds) {
+TEST(PriceLevelTest, eraseByIterator) {
     PriceLevel p(100.0);
-    p.add(1, 10);
+    auto it1 = p.add(1, 10);
     p.add(2, 20);
-    p.add(3, 30);
+    auto it3 = p.add(3, 30);
 
-    std::unordered_set<uint32_t> toRemove = {1, 3};
-    p.removeIds(toRemove);
+    p.erase(it1);
+    EXPECT_EQ(p.getSize(), 2);
+    EXPECT_EQ(p.front(), 2);
 
+    p.erase(it3);
     EXPECT_EQ(p.getSize(), 1);
     EXPECT_EQ(p.front(), 2);
 }

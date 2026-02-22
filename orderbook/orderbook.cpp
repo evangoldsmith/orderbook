@@ -57,8 +57,9 @@ bool Orderbook::cancelOrder(uint32_t orderId) {
 
     auto levelIt = book.find(order.price);
     if (levelIt != book.end()) {
+        levelIt->second.erase(order.listIt);
         levelIt->second.subtractQty(order.qty);
-        if (levelIt->second.getQty() == 0) {
+        if (levelIt->second.getSize() == 0) {
             book.erase(levelIt);
         }
     }
@@ -72,15 +73,6 @@ bool Orderbook::cancelOrder(uint32_t orderId) {
 bool Orderbook::processPriceTimeBidMatch(Order& order) {
     while (order.qty > 0 && !d_asks.empty() && order.price >= getLowestAsk()) {
         PriceLevel& level = d_asks.begin()->second;
-
-        // Lazy skip: cancelled orders still in deque
-        while (level.getSize() > 0 && d_orders.find(level.front()) == d_orders.end()) {
-            level.pop();
-        }
-        if (level.getSize() == 0) {
-            d_asks.erase(d_asks.begin());
-            continue;
-        }
 
         uint32_t restingId = level.front();
         Order& resting = d_orders[restingId];
@@ -105,15 +97,6 @@ bool Orderbook::processPriceTimeBidMatch(Order& order) {
 bool Orderbook::processPriceTimeAskMatch(Order& order) {
     while (order.qty > 0 && !d_bids.empty() && order.price <= getHighestBid()) {
         PriceLevel& level = d_bids.rbegin()->second;
-
-        // Lazy skip: cancelled orders still in deque
-        while (level.getSize() > 0 && d_orders.find(level.front()) == d_orders.end()) {
-            level.pop();
-        }
-        if (level.getSize() == 0) {
-            d_bids.erase(std::prev(d_bids.end()));
-            continue;
-        }
 
         uint32_t restingId = level.front();
         Order& resting = d_orders[restingId];
@@ -145,7 +128,6 @@ bool Orderbook::processProRataBidMatch(Order& order) {
         // Calculate proportional shares
         size_t filled = 0;
         for (uint32_t id : level.getIds()) {
-            if (d_orders.find(id) == d_orders.end()) continue;
             Order& restingOrder = d_orders[id];
             uint32_t share = static_cast<uint32_t>(
                 static_cast<double>(restingOrder.qty) / totalQty * fillQty
@@ -159,7 +141,6 @@ bool Orderbook::processProRataBidMatch(Order& order) {
         uint32_t remainingQty = fillQty - filled;
         for (uint32_t id : level.getIds()) {
             if (remainingQty == 0) break;
-            if (d_orders.find(id) == d_orders.end()) continue;
             Order& restingOrder = d_orders[id];
             uint32_t share = std::min(remainingQty, restingOrder.qty);
 
@@ -169,15 +150,17 @@ bool Orderbook::processProRataBidMatch(Order& order) {
 
         // Clean up zeroed orders
         level.subtractQty(fillQty);
-        std::unordered_set<uint32_t> toRemove;
-        for (uint32_t id : level.getIds()) {
-            auto it = d_orders.find(id);
-            if (it != d_orders.end() && it->second.qty == 0) {
-                toRemove.insert(id);
-                d_orders.erase(it);
+        auto it = level.getIds().begin();
+        while (it != level.getIds().end()) {
+            uint32_t id = *it;
+            auto orderIt = d_orders.find(id);
+            if (orderIt != d_orders.end() && orderIt->second.qty == 0) {
+                it = level.getIds().erase(it);
+                d_orders.erase(orderIt);
+            } else {
+                ++it;
             }
         }
-        level.removeIds(toRemove);
 
         if (level.getSize() == 0) {
             d_asks.erase(d_asks.begin());
@@ -195,7 +178,6 @@ bool Orderbook::processProRataAskMatch(Order& order) {
         // Calculate proportional shares
         size_t filled = 0;
         for (uint32_t id : level.getIds()) {
-            if (d_orders.find(id) == d_orders.end()) continue;
             Order& restingOrder = d_orders[id];
             uint32_t share = static_cast<uint32_t>(
                 static_cast<double>(restingOrder.qty) / totalQty * fillQty
@@ -209,7 +191,6 @@ bool Orderbook::processProRataAskMatch(Order& order) {
         uint32_t remainingQty = fillQty - filled;
         for (uint32_t id : level.getIds()) {
             if (remainingQty == 0) break;
-            if (d_orders.find(id) == d_orders.end()) continue;
             Order& restingOrder = d_orders[id];
             uint32_t share = std::min(remainingQty, restingOrder.qty);
 
@@ -219,15 +200,17 @@ bool Orderbook::processProRataAskMatch(Order& order) {
 
         // Clean up zeroed orders
         level.subtractQty(fillQty);
-        std::unordered_set<uint32_t> toRemove;
-        for (uint32_t id : level.getIds()) {
-            auto it = d_orders.find(id);
-            if (it != d_orders.end() && it->second.qty == 0) {
-                toRemove.insert(id);
-                d_orders.erase(it);
+        auto it = level.getIds().begin();
+        while (it != level.getIds().end()) {
+            uint32_t id = *it;
+            auto orderIt = d_orders.find(id);
+            if (orderIt != d_orders.end() && orderIt->second.qty == 0) {
+                it = level.getIds().erase(it);
+                d_orders.erase(orderIt);
+            } else {
+                ++it;
             }
         }
-        level.removeIds(toRemove);
 
         if (level.getSize() == 0) {
             d_bids.erase(std::prev(d_bids.end()));
@@ -254,7 +237,8 @@ void Orderbook::addToBooks(uint32_t orderId, const Order& order) {
         PriceLevel level(order.price);
         book[order.price] = level;
     }
-    book[order.price].add(orderId, order.qty);
+    auto it = book[order.price].add(orderId, order.qty);
+    d_orders[orderId].listIt = it;
 }
 
 const Order& Orderbook::getOrder(uint32_t id) const {
