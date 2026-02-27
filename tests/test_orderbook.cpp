@@ -234,9 +234,9 @@ TEST(ProRataTest, equalSizedOrdersSplitEvenly) {
     EXPECT_EQ(ob.getBidCount(), 0);
     EXPECT_EQ(ob.getAskCount(), 2);
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 5);
-    EXPECT_EQ(q[1].qty, 5);
+    std::list<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q.front().qty, 5);
+    EXPECT_EQ(std::next(q.begin())->qty, 5);
 }
 
 // Unequal orders: 40/60 split. Buy 10 from total of 100.
@@ -250,9 +250,9 @@ TEST(ProRataTest, unequalOrdersProportionalAllocation) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 36);  // 40 - 4
-    EXPECT_EQ(q[1].qty, 54);  // 60 - 6
+    std::list<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q.front().qty, 36);  // 40 - 4
+    EXPECT_EQ(std::next(q.begin())->qty, 54);  // 60 - 6
 }
 
 // Rounding: three orders of 10 each (total 30). Buy 10.
@@ -267,10 +267,10 @@ TEST(ProRataTest, remainderDistributedFIFO) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 10, 10.0));
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 6);  // 10 - 3 proportional - 1 remainder
-    EXPECT_EQ(q[1].qty, 7);  // 10 - 3 proportional
-    EXPECT_EQ(q[2].qty, 7);  // 10 - 3 proportional
+    std::list<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    EXPECT_EQ(q.front().qty, 6);  // 10 - 3 proportional - 1 remainder
+    EXPECT_EQ(std::next(q.begin())->qty, 7);  // 10 - 3 proportional
+    EXPECT_EQ(std::next(q.begin(), 2)->qty, 7);  // 10 - 3 proportional
 }
 
 // Buy consumes entire price level — all orders fully filled and removed.
@@ -313,9 +313,9 @@ TEST(ProRataTest, sellSideProportionalMatch) {
 
     EXPECT_EQ(ob.getAskCount(), 0);
 
-    std::deque<Order>& q = ob.getBidPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 15);
-    EXPECT_EQ(q[1].qty, 15);
+    std::list<Order>& q = ob.getBidPriceLevel(10.0).getQ();
+    EXPECT_EQ(q.front().qty, 15);
+    EXPECT_EQ(std::next(q.begin())->qty, 15);
 }
 
 // Sell-side with remainder: three bids of 10 (total 30). Sell 7.
@@ -330,10 +330,10 @@ TEST(ProRataTest, sellSideRemainderFIFO) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::SELL, 7, 10.0));
 
-    std::deque<Order>& q = ob.getBidPriceLevel(10.0).getQ();
-    EXPECT_EQ(q[0].qty, 7);  // 10 - 2 proportional - 1 remainder
-    EXPECT_EQ(q[1].qty, 8);  // 10 - 2
-    EXPECT_EQ(q[2].qty, 8);  // 10 - 2
+    std::list<Order>& q = ob.getBidPriceLevel(10.0).getQ();
+    EXPECT_EQ(q.front().qty, 7);  // 10 - 2 proportional - 1 remainder
+    EXPECT_EQ(std::next(q.begin())->qty, 8);  // 10 - 2
+    EXPECT_EQ(std::next(q.begin(), 2)->qty, 8);  // 10 - 2
 }
 
 // Small order gets 0 proportional share but still receives from remainder.
@@ -349,9 +349,9 @@ TEST(ProRataTest, smallOrderGetsRemainderOnly) {
 
     ASSERT_EQ(Status::FULFILLED, ob.insertOrder(Side::BUY, 5, 10.0));
 
-    std::deque<Order>& q = ob.getAskPriceLevel(10.0).getQ();
+    std::list<Order>& q = ob.getAskPriceLevel(10.0).getQ();
     EXPECT_EQ(q.size(), 1);
-    EXPECT_EQ(q[1].qty, 95);  // 99 - 4
+    EXPECT_EQ(q.front().qty, 95);  // 99 - 4
 
     // After next operation, the zeroed order should get cleaned up
 }
