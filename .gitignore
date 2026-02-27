@@ -2,3 +2,4 @@ build/
 logs/
 .cache/
 .claude/
+.vscode/
