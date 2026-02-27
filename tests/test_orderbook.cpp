@@ -394,3 +394,62 @@ TEST(ProRataTest, bookWorksAfterLevelCleared) {
     EXPECT_EQ(ob.getAskCount(), 1);
     EXPECT_EQ(ob.getLowestAsk(), 11.0);
 }
+
+// ==================== getOrder Tests ====================
+
+TEST(GetOrderTest, retrieveBuyOrder) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 10, 50.0);
+
+    uint32_t id = ob.getBidPriceLevel(50.0).peek().id;
+    const Order& o = ob.getOrder(id);
+
+    EXPECT_EQ(o.id, id);
+    EXPECT_EQ(o.side, Side::BUY);
+    EXPECT_EQ(o.price, 50.0);
+    EXPECT_EQ(o.qty, 10);
+}
+
+TEST(GetOrderTest, retrieveSellOrder) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 7, 99.0);
+
+    uint32_t id = ob.getAskPriceLevel(99.0).peek().id;
+    const Order& o = ob.getOrder(id);
+
+    EXPECT_EQ(o.id, id);
+    EXPECT_EQ(o.side, Side::SELL);
+    EXPECT_EQ(o.price, 99.0);
+    EXPECT_EQ(o.qty, 7);
+}
+
+TEST(GetOrderTest, retrieveMultipleOrders) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 5, 10.0);
+    ob.insertOrder(Side::BUY, 8, 11.0);
+
+    uint32_t id1 = ob.getBidPriceLevel(10.0).peek().id;
+    uint32_t id2 = ob.getBidPriceLevel(11.0).peek().id;
+
+    EXPECT_EQ(ob.getOrder(id1).qty, 5);
+    EXPECT_EQ(ob.getOrder(id1).price, 10.0);
+    EXPECT_EQ(ob.getOrder(id2).qty, 8);
+    EXPECT_EQ(ob.getOrder(id2).price, 11.0);
+}
+
+TEST(GetOrderTest, qtyReflectsPartialFill) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 10, 50.0);
+
+    uint32_t id = ob.getAskPriceLevel(50.0).peek().id;
+
+    // Partially fill the resting sell order
+    ob.insertOrder(Side::BUY, 4, 50.0);
+
+    EXPECT_EQ(ob.getOrder(id).qty, 6);
+}
+
+TEST(GetOrderTest, invalidIdThrows) {
+    Orderbook ob;
+    EXPECT_THROW(ob.getOrder(9999), std::out_of_range);
+}

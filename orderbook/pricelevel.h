@@ -23,7 +23,7 @@ public:
     size_t getSize() const;
     uint32_t getQty() const;
     double getPrice() const;
-    std::list<Order>& getQ();
+    std::list<Order>& getQ(); // TODO: get rid of this, keep pricelevel fully abstracted
 
 private:
     double d_price;

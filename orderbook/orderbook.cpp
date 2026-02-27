@@ -184,8 +184,12 @@ void Orderbook::addToBooks(const Order& order) {
     
     // Add order to ID reference map
     std::list<Order>& priceLevelOrders = book[order.price].getQ();
-    auto it = std::prev(priceLevelOrders.end());
-    d_orders.insert({order.id, OrderEntry{std::make_unique<Order>(order), it}});
+    OrderEntry it = std::prev(priceLevelOrders.end());
+    d_orders.insert({order.id, it});
+}
+
+const Order& Orderbook::getOrder(uint32_t orderId) const {
+    return *d_orders.at(orderId);
 }
 
 // Number of total sell orders in the book

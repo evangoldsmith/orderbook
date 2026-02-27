@@ -23,6 +23,7 @@ public:
     size_t getAskCount() const;
     PriceLevel& getAskPriceLevel(double price);
     PriceLevel& getBidPriceLevel(double price);
+    const Order& getOrder(uint32_t orderId) const;
 
 private:
     bool tryMatch(Order& order);

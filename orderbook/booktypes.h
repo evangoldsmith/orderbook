@@ -74,11 +74,7 @@ struct Order {
     }
 };
 
-using OrderPointer = std::unique_ptr<Order>;
-struct OrderEntry {
-    OrderPointer order;
-    std::list<Order>::iterator loc;
-};
+using OrderEntry = std::list<Order>::iterator;
 
 } // namespace orderbook
 #endif // BOOKTYPES_H
