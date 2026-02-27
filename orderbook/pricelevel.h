@@ -3,6 +3,8 @@
 
 #include <cstdint>
 #include <deque>
+#include <list>
+#include <memory>
 #include "booktypes.h"
 
 namespace orderbook {
@@ -21,12 +23,12 @@ public:
     size_t getSize() const;
     uint32_t getQty() const;
     double getPrice() const;
-    std::deque<Order>& getQ();
+    std::list<Order>& getQ();
 
 private:
     double d_price;
     uint32_t d_qty;
-    std::deque<Order> d_q;
+    std::list<Order> d_orders;
 };
 
 } // namespace orderbook

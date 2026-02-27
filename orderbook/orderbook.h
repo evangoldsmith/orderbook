@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <map>
+#include <unordered_map>
 #include "booktypes.h"
 #include "pricelevel.h"
 #include "logger.h"
@@ -34,6 +35,7 @@ private:
 
     std::map<double, PriceLevel> d_bids;
     std::map<double, PriceLevel> d_asks;
+    std::unordered_map<uint32_t, OrderEntry> d_orders;
     const MatchingMode d_matchingMode;
     Logger d_logger;
 };

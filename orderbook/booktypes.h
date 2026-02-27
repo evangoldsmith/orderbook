@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <chrono>
 #include <ostream>
+#include <list>
 
 namespace orderbook {
 
@@ -71,6 +72,12 @@ struct Order {
            << ", time=" << o.time << "}";
         return os;
     }
+};
+
+using OrderPointer = std::unique_ptr<Order>;
+struct OrderEntry {
+    OrderPointer order;
+    std::list<Order>::iterator loc;
 };
 
 } // namespace orderbook

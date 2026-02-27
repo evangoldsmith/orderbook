@@ -99,8 +99,7 @@ bool Orderbook::processProRataBidMatch(Order& order) {
 
         // Calculate proportional shares
         size_t filled = 0;
-        for (size_t i = 0; i < level.getSize(); i++) {
-            Order& restingOrder = level.getQ()[i];
+        for (Order& restingOrder : level.getQ()) {
             uint32_t share = static_cast<uint32_t>(
                 static_cast<double>(restingOrder.qty) / totalQty * fillQty
             );
@@ -111,8 +110,7 @@ bool Orderbook::processProRataBidMatch(Order& order) {
 
         // Distribute reaminder by FIFO
         uint32_t remainingQty = fillQty - filled;
-        for (size_t i = 0; i < level.getSize() && remainingQty != 0; i++) {
-            Order& restingOrder = level.getQ()[i];
+        for (Order& restingOrder : level.getQ()) {
             uint32_t share = std::min(remainingQty, restingOrder.qty);
 
             createTrade(order, restingOrder, share);
@@ -136,20 +134,18 @@ bool Orderbook::processProRataAskMatch(Order& order) {
 
         // Calculate proportional shares
         size_t filled = 0;
-        for (size_t i = 0; i < level.getSize(); i++) {
-            Order& restingOrder = level.getQ()[i];
+        for (Order& restingOrder : level.getQ()) {
             uint32_t share = static_cast<uint32_t>(
                 static_cast<double>(restingOrder.qty) / totalQty * fillQty
             );
 
             createTrade(order, restingOrder, share);
-            filled += share;
+            filled += share;    
         }
 
         // Distribute reaminder by FIFO
         uint32_t remainingQty = fillQty - filled;
-        for (size_t i = 0; i < level.getSize() && remainingQty != 0; i++) {
-            Order& restingOrder = level.getQ()[i];
+        for (Order& restingOrder : level.getQ()) {
             uint32_t share = std::min(remainingQty, restingOrder.qty);
 
             createTrade(order, restingOrder, share);
@@ -179,11 +175,17 @@ void Orderbook::createTrade(Order& aggressor, Order& resting, uint32_t qty) {
 void Orderbook::addToBooks(const Order& order) {
     std::map<double, PriceLevel>& book = (order.side == Side::BUY) ? d_bids : d_asks;
 
+    // Add order to price level
     if (!book.contains(order.price)) {
         PriceLevel level(order.price);
         book[order.price] = level;
     }
     book[order.price].add(order);
+    
+    // Add order to ID reference map
+    std::list<Order>& priceLevelOrders = book[order.price].getQ();
+    auto it = std::prev(priceLevelOrders.end());
+    d_orders.insert({order.id, OrderEntry{std::make_unique<Order>(order), it}});
 }
 
 // Number of total sell orders in the book
