@@ -2,12 +2,14 @@
 #include <random>
 #include <thread>
 #include <chrono>
+#include <unordered_set>
 #include "orderbook.h"
 
 using namespace orderbook;
 
 int main() {
     Orderbook ob(LogLevel::FULL, MatchingMode::PRICE_TIME);
+    std::unordered_set<uint32_t> ids;
 
     std::mt19937 rng(std::random_device{}());
     std::uniform_int_distribution<int> sideDist(0, 1);
@@ -28,7 +30,8 @@ int main() {
         uint32_t qty = qtyDist(rng);
         double price = std::round((midPrice + priceDist(rng)) * 100) / 100;
 
-        Status response = ob.insertOrder(side, qty, price);
+        uint32_t id;
+        Status response = ob.insertOrder(id, side, qty, price);
 
         std::cout << "[" << (i + 1) << "] "
                   << (side == Side::BUY ? "BUY " : "SELL")

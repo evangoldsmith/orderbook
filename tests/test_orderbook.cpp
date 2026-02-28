@@ -527,3 +527,196 @@ TEST(GetOrderTest, invalidIdThrows) {
     Orderbook ob;
     EXPECT_THROW(ob.getOrder(9999), std::out_of_range);
 }
+
+// ==================== correctOrder Tests ====================
+
+TEST(CorrectOrderTest, nonExistentIdReturnsError) {
+    Orderbook ob;
+    Order updated(Side::BUY, 5, 10.0);
+    EXPECT_EQ(Status::ERROR, ob.correctOrder(9999, updated));
+}
+
+TEST(CorrectOrderTest, correctQtyStaysPending) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    Order updated(Side::BUY, 5, 50.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getBidPriceLevel(50.0).peek().qty, 5);
+}
+
+TEST(CorrectOrderTest, correctPriceMovesPriceLevel) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    Order updated(Side::BUY, 10, 60.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getHighestBid(), 60.0);
+    EXPECT_EQ(ob.getBidPriceLevel(60.0).peek().qty, 10);
+}
+
+TEST(CorrectOrderTest, correctPriceRemovesFromOldLevel) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    Order updated(Side::BUY, 10, 60.0);
+    ob.correctOrder(id, updated);
+
+    // Only one bid and it's at the new price — old level is gone
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getHighestBid(), 60.0);
+}
+
+TEST(CorrectOrderTest, correctOrderPreservesId) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    Order updated(Side::BUY, 7, 50.0);
+    ob.correctOrder(id, updated);
+
+    const Order& o = ob.getOrder(id);
+    EXPECT_EQ(o.id, id);
+    EXPECT_EQ(o.qty, 7);
+    EXPECT_EQ(o.price, 50.0);
+}
+
+TEST(CorrectOrderTest, correctSideBuyToSell) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    Order updated(Side::SELL, 10, 60.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getBidCount(), 0);
+    EXPECT_EQ(ob.getAskCount(), 1);
+    EXPECT_EQ(ob.getLowestAsk(), 60.0);
+}
+
+TEST(CorrectOrderTest, correctSideSellToBuy) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::SELL, 10, 60.0);
+
+    Order updated(Side::BUY, 10, 50.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getAskCount(), 0);
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getHighestBid(), 50.0);
+}
+
+// Correct a buy to a price that crosses a resting sell → immediate fill
+TEST(CorrectOrderTest, correctBuyPriceTriggersFullMatch) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 5, 50.0);
+
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 5, 40.0);  // doesn't cross
+
+    Order updated(Side::BUY, 5, 55.0);
+    EXPECT_EQ(Status::FULFILLED, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getBidCount(), 0);
+    EXPECT_EQ(ob.getAskCount(), 0);
+}
+
+// Correct a sell to a price that crosses a resting buy → immediate fill
+TEST(CorrectOrderTest, correctSellPriceTriggersFullMatch) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 5, 50.0);
+
+    uint32_t id;
+    ob.insertOrder(id, Side::SELL, 5, 60.0);  // doesn't cross
+
+    Order updated(Side::SELL, 5, 45.0);
+    EXPECT_EQ(Status::FULFILLED, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getBidCount(), 0);
+    EXPECT_EQ(ob.getAskCount(), 0);
+}
+
+// Correct to a crossing price where only partial liquidity is available
+TEST(CorrectOrderTest, correctPriceTriggersPartialMatch) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 3, 50.0);
+
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 40.0);
+
+    Order updated(Side::BUY, 10, 55.0);
+    EXPECT_EQ(Status::PARTIALLY_FULFILLED, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getAskCount(), 0);
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getBidPriceLevel(55.0).peek().qty, 7);
+}
+
+// Correcting a fulfilled order (not in book) should return ERROR
+TEST(CorrectOrderTest, correctFulfilledOrderReturnsError) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 5, 50.0);
+
+    uint32_t id;
+    ASSERT_EQ(Status::FULFILLED, ob.insertOrder(id, Side::BUY, 5, 50.0));
+
+    Order updated(Side::BUY, 5, 50.0);
+    EXPECT_EQ(Status::ERROR, ob.correctOrder(id, updated));
+}
+
+// Correcting a partially-filled resting order replaces it with the new qty
+TEST(CorrectOrderTest, correctPartiallyFilledOrder) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 3, 50.0);
+
+    uint32_t id;
+    ASSERT_EQ(Status::PARTIALLY_FULFILLED, ob.insertOrder(id, Side::BUY, 10, 55.0));
+    // 7 remain in the book at 55.0
+
+    Order updated(Side::BUY, 5, 50.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, updated));
+
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getBidPriceLevel(50.0).peek().qty, 5);
+}
+
+// Sequential corrections on the same order all succeed
+TEST(CorrectOrderTest, correctMultipleTimesSequentially) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    Order u1(Side::BUY, 8, 51.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, u1));
+    EXPECT_EQ(ob.getHighestBid(), 51.0);
+
+    Order u2(Side::BUY, 6, 52.0);
+    EXPECT_EQ(Status::PENDING, ob.correctOrder(id, u2));
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getHighestBid(), 52.0);
+    EXPECT_EQ(ob.getBidPriceLevel(52.0).peek().qty, 6);
+}
+
+// Correcting one order must not affect other orders at the same price level
+TEST(CorrectOrderTest, correctDoesNotAffectOtherOrders) {
+    Orderbook ob;
+    uint32_t id1, id2;
+    ob.insertOrder(id1, Side::BUY, 10, 50.0);
+    ob.insertOrder(id2, Side::BUY, 5, 50.0);
+
+    Order updated(Side::BUY, 10, 55.0);
+    ob.correctOrder(id1, updated);
+
+    // id2 still at 50.0 with original qty
+    EXPECT_EQ(ob.getBidCount(), 2);
+    EXPECT_EQ(ob.getBidPriceLevel(50.0).peek().qty, 5);
+    EXPECT_EQ(ob.getBidPriceLevel(55.0).peek().qty, 10);
+}

@@ -7,25 +7,38 @@ namespace orderbook {
 
 // Process a new order, run matching, and add to book if necessary.
 // Returns Status (ERROR, PENDING, PARTIALLY_FULFILLED, FULFILLED)
-Status Orderbook::insertOrder(Side side, uint32_t qty, double price) {
+Status Orderbook::insertOrder(uint32_t& orderId, Side side, uint32_t qty, double price) {
     if (qty <= 0 || price <= 0) {
         return Status::ERROR;
     }
 
     // Attempt to match order against book
     Order newOrder(side, qty, price);
-    d_logger.printEvent(newOrder);
+    orderId = newOrder.id;
+
+    return processOrder(newOrder);
+}
+
+Status Orderbook::processOrder(Order& order) {
+    d_logger.printEvent(order);
+    const uint32_t origQty = order.qty;
     Status res = Status::PENDING;
-    if (tryMatch(newOrder)) {
+    if (tryMatch(order)) {
         res = Status::FULFILLED;
-    } else if (newOrder.qty != qty) {
+    } else if (order.qty != origQty) {
         res = Status::PARTIALLY_FULFILLED;
     }
 
     // Add full or remaining order to book
-    newOrder.status = res;
-    if (res != Status::FULFILLED) { addToBooks(newOrder); }
+    order.status = res;
+    if (res != Status::FULFILLED) { addToBooks(order); }
     return res;
+}
+
+
+Status Orderbook::insertOrder(Side side, uint32_t qty, double price) {
+    static uint32_t unusedId;
+    return insertOrder(unusedId, side, qty, price);
 }
 
 bool Orderbook::tryMatch(Order& order) {
@@ -170,6 +183,22 @@ void Orderbook::createTrade(Order& aggressor, Order& resting, uint32_t qty) {
         d_logger.printEvent(resting, aggressor, qty, aggressor.price);
     }
 }
+
+Status Orderbook::correctOrder(uint32_t orderId, Order& updatedOrder) {
+    if (!d_orders.contains(orderId)) {
+        return Status::ERROR; // TODO: Add exceptions
+    }
+
+    // Remove original trade
+    if (!cancelOrder(orderId)) {
+        return Status::ERROR;
+    }
+    
+    // Process updated order with the same ID
+    Order newOrder(orderId, updatedOrder.side, updatedOrder.qty, updatedOrder.price);
+    return processOrder(newOrder);
+}
+
 
 // Add order to respective book (bids/asks) depending on buy/sell
 void Orderbook::addToBooks(const Order& order) {
