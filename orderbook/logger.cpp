@@ -37,4 +37,13 @@ void Logger::printEvent(Order& buyer, Order& seller, uint32_t qty, double price)
            << "}" << std::endl;
 }
 
+void Logger::printCancel(const Order& order) {
+    if (d_level == LogLevel::OFF || !d_file.is_open()) return;
+
+    d_file << "(" << now() << ")[CANCEL]: {id: " << order.id
+           << ", price: " << order.price
+           << ", qty: " << order.qty
+           << "}" << std::endl;
+}
+
 } // namespace orderbook

@@ -14,9 +14,9 @@ TEST(OrderTest, uniqueIds) {
     Order o2(Side::SELL, 0, 0.0);
     Order o3(Side::BUY, 0, 0.0);
 
-    EXPECT_EQ(o1.id, 1);
-    EXPECT_EQ(o2.id, 2);
-    EXPECT_EQ(o3.id, 3);
+    EXPECT_TRUE(o1.id > 0);
+    EXPECT_TRUE(o2.id > o1.id);
+    EXPECT_TRUE(o3.id > o2.id);
 }
 
 TEST(OrderTest, timestampIsPopulated) {

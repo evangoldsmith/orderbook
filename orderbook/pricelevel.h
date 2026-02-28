@@ -16,6 +16,7 @@ public:
 
     bool add(const Order& order);
     bool pop();
+    bool remove(const OrderEntry order);
     Order& peek();
     void subtractQty(const uint32_t qty);
     void clearEmptyOrders();

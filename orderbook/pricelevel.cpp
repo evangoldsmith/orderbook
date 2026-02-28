@@ -23,6 +23,16 @@ bool PriceLevel::pop() {
     return false;
 }
 
+bool PriceLevel::remove(const OrderEntry order) {
+    if (!d_orders.empty()) {
+        Order& o = *order;
+        d_qty -= o.qty;
+        d_orders.erase(order);
+        return true;
+    }
+    return false;
+}
+
 void PriceLevel::clearEmptyOrders() {
     d_orders.erase(
         std::remove_if(d_orders.begin(), d_orders.end(), [](const Order& o) 

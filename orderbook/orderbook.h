@@ -24,6 +24,7 @@ public:
     PriceLevel& getAskPriceLevel(double price);
     PriceLevel& getBidPriceLevel(double price);
     const Order& getOrder(uint32_t orderId) const;
+    bool cancelOrder(uint32_t orderId);
 
 private:
     bool tryMatch(Order& order);

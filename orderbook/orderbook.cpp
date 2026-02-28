@@ -181,11 +181,35 @@ void Orderbook::addToBooks(const Order& order) {
         book[order.price] = level;
     }
     book[order.price].add(order);
-    
+
     // Add order to ID reference map
     std::list<Order>& priceLevelOrders = book[order.price].getQ();
     OrderEntry it = std::prev(priceLevelOrders.end());
     d_orders.insert({order.id, it});
+}
+
+bool Orderbook::cancelOrder(uint32_t orderId) {
+    if (!d_orders.contains(orderId)) {
+        return false; // TODO: Add exceptions
+    }
+
+    // Remove from price level
+    Order order = getOrder(orderId);
+    std::map<double, PriceLevel>& book = (order.side == Side::BUY) ? d_bids : d_asks;
+    PriceLevel& level = book[order.price];
+    OrderEntry it = d_orders.at(orderId);
+    if (!level.remove(it)) {
+        return false; // TODO: Add exceptions
+    }
+    if (level.getSize() == 0) {
+        book.erase(order.price);
+    }
+
+    // Remove from order map
+    d_orders.erase(orderId);
+    d_logger.printCancel(order);
+
+    return true;
 }
 
 const Order& Orderbook::getOrder(uint32_t orderId) const {

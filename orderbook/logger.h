@@ -14,6 +14,7 @@ public:
 
     void printEvent(const Order& order);
     void printEvent(Order& buyer, Order& seller, uint32_t qty, double price);
+    void printCancel(const Order& order);
 
 private:
     const LogLevel d_level;

@@ -395,6 +395,80 @@ TEST(ProRataTest, bookWorksAfterLevelCleared) {
     EXPECT_EQ(ob.getLowestAsk(), 11.0);
 }
 
+// ==================== cancelOrder Tests ====================
+
+TEST(CancelOrderTest, cancelBuyReturnsTrueAndReducesCount) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 10, 50.0);
+
+    uint32_t id = ob.getBidPriceLevel(50.0).peek().id;
+    EXPECT_TRUE(ob.cancelOrder(id));
+    EXPECT_EQ(ob.getBidCount(), 0);
+}
+
+TEST(CancelOrderTest, cancelSellReturnsTrueAndReducesCount) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 10, 50.0);
+
+    uint32_t id = ob.getAskPriceLevel(50.0).peek().id;
+    EXPECT_TRUE(ob.cancelOrder(id));
+    EXPECT_EQ(ob.getAskCount(), 0);
+}
+
+TEST(CancelOrderTest, cancelInvalidIdReturnsFalse) {
+    Orderbook ob;
+    EXPECT_FALSE(ob.cancelOrder(9999));
+}
+
+TEST(CancelOrderTest, cancelledOrderNotAccessibleViaGetOrder) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 5, 20.0);
+
+    uint32_t id = ob.getBidPriceLevel(20.0).peek().id;
+    ob.cancelOrder(id);
+    EXPECT_THROW(ob.getOrder(id), std::out_of_range);
+}
+
+TEST(CancelOrderTest, cancelMiddleOrderPreservesFIFO) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 5, 10.0);
+    ob.insertOrder(Side::BUY, 10, 10.0);
+    ob.insertOrder(Side::BUY, 7, 10.0);
+
+    std::list<Order>& q = ob.getBidPriceLevel(10.0).getQ();
+    uint32_t middleId = std::next(q.begin())->id;
+
+    EXPECT_TRUE(ob.cancelOrder(middleId));
+
+    EXPECT_EQ(ob.getBidCount(), 2);
+    EXPECT_EQ(ob.getBidPriceLevel(10.0).peek().qty, 5);          // first still intact
+    EXPECT_EQ(std::next(q.begin())->qty, 7);                     // last slides up
+}
+
+TEST(CancelOrderTest, cancelledOrderDoesNotParticipateInMatch) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 5, 10.0);
+
+    uint32_t id = ob.getAskPriceLevel(10.0).peek().id;
+    EXPECT_TRUE(ob.cancelOrder(id));
+
+    // No resting sell remains, buy should go to book as PENDING
+    EXPECT_EQ(Status::PENDING, ob.insertOrder(Side::BUY, 5, 10.0));
+    EXPECT_EQ(ob.getBidCount(), 1);
+    EXPECT_EQ(ob.getAskCount(), 0);
+}
+
+TEST(CancelOrderTest, cancelUpdatesQty) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 10, 50.0);
+    ob.insertOrder(Side::BUY, 20, 50.0);
+
+    uint32_t id = ob.getBidPriceLevel(50.0).peek().id;
+    ob.cancelOrder(id);
+
+    EXPECT_EQ(ob.getBidPriceLevel(50.0).getQty(), 20);
+}
+
 // ==================== getOrder Tests ====================
 
 TEST(GetOrderTest, retrieveBuyOrder) {
