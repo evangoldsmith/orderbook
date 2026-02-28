@@ -35,7 +35,7 @@ int main() {
 
         std::cout << "[" << (i + 1) << "] "
                   << (side == Side::BUY ? "BUY " : "SELL")
-                  << " qty=" << qty << " @ $" << price << " -> ";
+                  << "id=" << id << " qty=" << qty << " @ $" << price << " -> ";
 
         switch (response) {
             case Status::PENDING:             std::cout << "PENDING"; break;

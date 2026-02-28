@@ -37,8 +37,13 @@ Status Orderbook::processOrder(Order& order) {
 
 
 Status Orderbook::insertOrder(Side side, uint32_t qty, double price) {
-    static uint32_t unusedId;
-    return insertOrder(unusedId, side, qty, price);
+    if (qty <= 0 || price <= 0) {
+        return Status::ERROR;
+    }
+
+    // Attempt to match order against book
+    Order newOrder(side, qty, price);    
+    return processOrder(newOrder);
 }
 
 bool Orderbook::tryMatch(Order& order) {
