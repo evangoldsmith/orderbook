@@ -8,7 +8,7 @@ test: build
 	ctest --test-dir build --output-on-failure
 
 demo: build
-	./build/demo/demo >/dev/null 2>&1 & python3 demo/monitor.py
+	./build/demo/demo 2>&1 & python3 demo/monitor.py
 
 clean:
 	rm -rf build

@@ -24,7 +24,7 @@ except ImportError:
 LOG_PATH = Path("logs/orderbook.log")
 REFRESH_HZ = 15
 MAX_EVENTS = 30
-MAX_TRADE_HISTORY = 80
+MAX_TRADE_HISTORY = 101
 
 ORDER_RE  = re.compile(r'\((\d+)\)\[ORDER\]: \{Side: (\w+), qty: (\d+), price: ([\d.]+), id: (\d+)\}')
 TRADE_RE  = re.compile(r'\((\d+)\)\[TRADE\]: \{qty: (\d+), price: ([\d.]+), buyerId: (\d+), sellerId: (\d+)\}')
@@ -117,10 +117,10 @@ class Stats:
             self.events.appendleft(t)
 
 
-def sparkline(prices, width=68, height=7):
+def sparkline(prices, width=500, height=7):
     """ASCII dot chart of trade prices."""
     if len(prices) < 2:
-        return Align.center(Text("Waiting for trades…", style="dim"), vertical="middle")
+        return Align(Text("Waiting for trades…", style="dim"), align="center", vertical="middle")
 
     pts   = list(prices)[-width:]
     lo    = min(pts)
@@ -134,9 +134,8 @@ def sparkline(prices, width=68, height=7):
 
     lines = Text()
     for r, row in enumerate(grid):
-        # price label on the right edge
         frac  = 1.0 - r / (height - 1)
-        label = f" {lo + frac * span:>7.2f}"
+        label = f" {lo + frac * span:>10.2f}"
         if r == 0:
             style = "bright_red"
         elif r == height - 1:
@@ -144,13 +143,10 @@ def sparkline(prices, width=68, height=7):
         else:
             style = "dim"
 
-        row_text = "".join(row)
-        # colour the dots: green below midpoint, red above
         mid_row = (height - 1) / 2
         dot_style = "bright_green" if r > mid_row else "bright_red"
-        colored = row_text.replace("●", "●")  # placeholder; build manually
         lines.append("  ")
-        for ch in row_text:
+        for ch in "".join(row):
             if ch == "●":
                 lines.append("●", style=dot_style)
             else:
@@ -158,7 +154,7 @@ def sparkline(prices, width=68, height=7):
         lines.append(label, style=style)
         lines.append("\n")
 
-    return lines
+    return Align(lines, vertical="bottom", align="right")
 
 
 def build_ui(stats: Stats) -> Layout:
@@ -169,8 +165,8 @@ def build_ui(stats: Stats) -> Layout:
         Layout(name="chart", size=11),
     )
     layout["body"].split_row(
-        Layout(name="stats", ratio=1),
-        Layout(name="feed", ratio=2),
+        Layout(name="stats", ratio=2),
+        Layout(name="feed", ratio=3),
     )
 
     # ── Header ────────────────────────────────────────────────────────────────
@@ -226,6 +222,7 @@ def tail(f, stats: Stats):
     while True:
         line = f.readline()
         if not line:
+            f.seek(f.tell())  # flush read buffer so next call hits the OS
             break
         stats.process_line(line)
         found = True
@@ -247,8 +244,8 @@ def main():
         for line in f:
             stats.process_line(line)
 
-        with Live(build_ui(stats), refresh_per_second=REFRESH_HZ, screen=True) as live:
-            try:
+        try:
+            with Live(build_ui(stats), refresh_per_second=REFRESH_HZ, screen=True) as live:
                 while True:
                     # Detect log rotation / truncation (demo reopens with trunc)
                     try:
@@ -261,16 +258,15 @@ def main():
                     if cur_inode != last_inode or cur_size < f.tell():
                         f.close()
                         f = open(LOG_PATH, "r")
-                        stats   = Stats()
+                        stats      = Stats()
                         last_inode = cur_inode
 
                     if tail(f, stats):
                         live.update(build_ui(stats))
                     else:
                         time.sleep(1 / REFRESH_HZ)
-
-            except KeyboardInterrupt:
-                pass
+        except KeyboardInterrupt:
+            pass
 
     console.print("\n[bold]Monitor stopped.[/bold]")
 
