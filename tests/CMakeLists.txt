@@ -20,13 +20,5 @@ target_link_libraries(orderbook_tests
         GTest::gtest_main
 )
 
-add_executable(demo 
-    demo.cpp
-)
-target_link_libraries(demo 
-    PRIVATE 
-        orderbook
-)
-
 include(GoogleTest)
 gtest_discover_tests(orderbook_tests)
