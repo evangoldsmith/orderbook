@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <unordered_set>
 #include "orderbook.h"
 
 using namespace orderbook;
@@ -703,6 +704,89 @@ TEST(CorrectOrderTest, correctMultipleTimesSequentially) {
     EXPECT_EQ(ob.getBidCount(), 1);
     EXPECT_EQ(ob.getHighestBid(), 52.0);
     EXPECT_EQ(ob.getBidPriceLevel(52.0).peek().qty, 6);
+}
+
+// ==================== getAllRestingOrders Tests ====================
+
+TEST(GetAllRestingOrdersTest, emptyBookReturnsEmpty) {
+    Orderbook ob;
+    EXPECT_TRUE(ob.getAllRestingOrders().empty());
+}
+
+TEST(GetAllRestingOrdersTest, singleBuyOrder) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+
+    auto ids = ob.getAllRestingOrders();
+    ASSERT_EQ(ids.size(), 1);
+    EXPECT_EQ(ids[0], id);
+}
+
+TEST(GetAllRestingOrdersTest, singleSellOrder) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::SELL, 5, 60.0);
+
+    auto ids = ob.getAllRestingOrders();
+    ASSERT_EQ(ids.size(), 1);
+    EXPECT_EQ(ids[0], id);
+}
+
+TEST(GetAllRestingOrdersTest, mixedBuysAndSells) {
+    Orderbook ob;
+    uint32_t id1, id2, id3;
+    ob.insertOrder(id1, Side::BUY, 10, 50.0);
+    ob.insertOrder(id2, Side::BUY, 5, 49.0);
+    ob.insertOrder(id3, Side::SELL, 8, 60.0);
+
+    auto ids = ob.getAllRestingOrders();
+    ASSERT_EQ(ids.size(), 3);
+
+    std::unordered_set<uint32_t> idSet(ids.begin(), ids.end());
+    EXPECT_TRUE(idSet.count(id1));
+    EXPECT_TRUE(idSet.count(id2));
+    EXPECT_TRUE(idSet.count(id3));
+}
+
+TEST(GetAllRestingOrdersTest, fulfilledOrderNotIncluded) {
+    Orderbook ob;
+    ob.insertOrder(Side::SELL, 5, 50.0);
+
+    uint32_t buyId;
+    ASSERT_EQ(Status::FULFILLED, ob.insertOrder(buyId, Side::BUY, 5, 50.0));
+
+    EXPECT_TRUE(ob.getAllRestingOrders().empty());
+}
+
+TEST(GetAllRestingOrdersTest, cancelledOrderNotIncluded) {
+    Orderbook ob;
+    uint32_t id;
+    ob.insertOrder(id, Side::BUY, 10, 50.0);
+    ob.cancelOrder(id);
+
+    EXPECT_TRUE(ob.getAllRestingOrders().empty());
+}
+
+TEST(GetAllRestingOrdersTest, countMatchesBidPlusAskCount) {
+    Orderbook ob;
+    ob.insertOrder(Side::BUY, 10, 50.0);
+    ob.insertOrder(Side::BUY, 5, 49.0);
+    ob.insertOrder(Side::SELL, 8, 60.0);
+    ob.insertOrder(Side::SELL, 3, 61.0);
+
+    EXPECT_EQ(ob.getAllRestingOrders().size(), ob.getBidCount() + ob.getAskCount());
+}
+
+TEST(GetAllRestingOrdersTest, partialFillLeavesRestingOrder) {
+    Orderbook ob;
+    uint32_t sellId;
+    ob.insertOrder(sellId, Side::SELL, 10, 50.0);
+    ob.insertOrder(Side::BUY, 4, 50.0);  // partially fills sell
+
+    auto ids = ob.getAllRestingOrders();
+    ASSERT_EQ(ids.size(), 1);
+    EXPECT_EQ(ids[0], sellId);
 }
 
 // Correcting one order must not affect other orders at the same price level

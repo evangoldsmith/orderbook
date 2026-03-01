@@ -75,6 +75,7 @@ bool Orderbook::processPriceTimeBidMatch(Order& order) {
         level.subtractQty(fillQty);
 
         if (resting.qty == 0) {
+            d_orders.erase(resting.id);
             level.pop();
         }
 
@@ -96,6 +97,7 @@ bool Orderbook::processPriceTimeAskMatch(Order& order) {
         level.subtractQty(fillQty);
 
         if (resting.qty == 0) {
+            d_orders.erase(resting.id);
             level.pop();
         }
 
@@ -136,6 +138,9 @@ bool Orderbook::processProRataBidMatch(Order& order) {
         }
 
         level.subtractQty(fillQty);
+        for (const Order& o : level.getQ()) {
+            if (o.qty == 0) d_orders.erase(o.id);
+        }
         level.clearEmptyOrders();
         if (level.getSize() == 0) {
             d_asks.erase(d_asks.begin());
@@ -171,6 +176,9 @@ bool Orderbook::processProRataAskMatch(Order& order) {
         }
 
         level.subtractQty(fillQty);
+        for (const Order& o : level.getQ()) {
+            if (o.qty == 0) d_orders.erase(o.id);
+        }
         level.clearEmptyOrders();
         if (level.getSize() == 0) {
             d_bids.erase(std::prev(d_bids.end()));
@@ -248,6 +256,16 @@ bool Orderbook::cancelOrder(uint32_t orderId) {
 
 const Order& Orderbook::getOrder(uint32_t orderId) const {
     return *d_orders.at(orderId);
+}
+
+const std::vector<uint32_t> Orderbook::getAllRestingOrders() const {
+    std::vector<uint32_t> ids;
+    ids.clear();
+    ids.reserve(d_orders.size());
+    for (const auto& [id, _] : d_orders) {
+        ids.push_back(id);
+    }
+    return ids;
 }
 
 // Number of total sell orders in the book

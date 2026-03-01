@@ -26,6 +26,7 @@ public:
     size_t getAskCount() const;
     PriceLevel& getAskPriceLevel(double price);
     PriceLevel& getBidPriceLevel(double price);
+    const std::vector<uint32_t> getAllRestingOrders() const;
     const Order& getOrder(uint32_t orderId) const;
 
 private:
