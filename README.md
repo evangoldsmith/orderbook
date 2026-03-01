@@ -22,7 +22,9 @@ Runs a simulation that sends random buy/sell orders into the book and logs all a
 make demo
 ```
 
-Output is printed to the console and logged to `logs/orderbook.log`.
+Output is logged to `logs/orderbook.log` and the live monitoring terminal UI is started which reads from the log file.
+
+<img width="2710" height="1546" alt="image" src="https://github.com/user-attachments/assets/158545f7-a77a-4b67-8640-6fd9cca5fe08" />
 
 ## Clean
 
